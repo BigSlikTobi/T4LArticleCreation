@@ -3,10 +3,14 @@ import aiohttp
 import asyncio
 import ssl
 import certifi
-from typing import List, Dict
+from typing import List, Dict, Tuple, Optional
 from dotenv import load_dotenv
 import re
 import yaml
+import json
+import time
+import hashlib
+from pathlib import Path
 from LLMSetup import initialize_model
 
 # Load environment variables
@@ -51,8 +55,48 @@ class ImageSearcher:
         print(f"Custom Search ID length: {len(self.custom_search_id)} characters")
         print(f"Using LLM for query optimization: {self.use_llm}")
         
+        # Rate limiting settings
+        self.requests_per_day = 100  # Google's default limit
+        self.requests_remaining = self.requests_per_day
+        self.last_reset_time = time.time()
+        self.reset_period = 24 * 60 * 60  # 24 hours in seconds
+        self.min_wait_time = 1  # Minimum seconds between requests
+        self.last_request_time = 0
+        
         self.base_url = "https://www.googleapis.com/customsearch/v1"
     
+    def _check_rate_limit(self):
+        """Check and update rate limiting, reset if needed"""
+        current_time = time.time()
+        
+        # Reset count if a new 24-hour period has started
+        if current_time - self.last_reset_time > self.reset_period:
+            self.requests_remaining = self.requests_per_day
+            self.last_reset_time = current_time
+            print(f"Rate limit reset. {self.requests_remaining} requests available for today.")
+            
+        # Enforce minimum wait time between requests
+        time_since_last = current_time - self.last_request_time
+        if time_since_last < self.min_wait_time:
+            sleep_time = self.min_wait_time - time_since_last
+            print(f"Waiting {sleep_time:.2f}s between requests...")
+            time.sleep(sleep_time)
+            
+        self.last_request_time = time.time()
+            
+        # Check if we have requests remaining
+        if self.requests_remaining <= 0:
+            seconds_until_reset = self.reset_period - (current_time - self.last_reset_time)
+            print(f"API quota exceeded. Reset in {seconds_until_reset/60:.1f} minutes.")
+            return False
+            
+        return True
+    
+    def _use_request(self):
+        """Mark that we've used a request from our quota"""
+        self.requests_remaining -= 1
+        print(f"API request used. {self.requests_remaining} requests remaining for today.")
+
     async def _optimize_query_with_llm(self, query: str) -> str:
         """
         Use Gemini to generate an optimized image search query from article text.
@@ -167,17 +211,209 @@ class ImageSearcher:
             
         return list(dict.fromkeys(key_terms))  # Remove duplicates but preserve order
 
-    async def search_images(self, query: str, num_images: int = 3) -> List[Dict[str, str]]:
+    async def validate_image_url(self, session: aiohttp.ClientSession, image_data: Dict[str, str]) -> bool:
         """
-        Search for images using Google Custom Search API
+        Validate if a URL actually points to a valid image by making a HEAD request.
+        
+        Args:
+            session (aiohttp.ClientSession): The active client session
+            image_data (Dict[str, str]): Dictionary containing image data including URL
+            
+        Returns:
+            bool: True if the URL is a valid image, False otherwise
+        """
+        url = image_data['url']
+        try:
+            # Try HEAD request first (more efficient)
+            async with session.head(url, allow_redirects=True, timeout=5) as response:
+                if response.status != 200:
+                    print(f"Invalid image URL (status {response.status}): {url}")
+                    return False
+                
+                # Check content type
+                content_type = response.headers.get('Content-Type', '')
+                if not content_type.startswith('image/'):
+                    print(f"Invalid content type ({content_type}): {url}")
+                    return False
+                
+                return True
+        except Exception as e:
+            # If HEAD fails, try GET as fallback (some servers don't support HEAD)
+            try:
+                async with session.get(url, timeout=5) as response:
+                    if response.status != 200:
+                        print(f"Invalid image URL (status {response.status}): {url}")
+                        return False
+                    
+                    content_type = response.headers.get('Content-Type', '')
+                    if not content_type.startswith('image/'):
+                        print(f"Invalid content type ({content_type}): {url}")
+                        return False
+                    
+                    return True
+            except Exception as e:
+                print(f"Error validating image URL {url}: {str(e)}")
+                return False
+            
+    def rank_image_by_relevance(self, image: Dict[str, str], content: str, query: str) -> float:
+        """
+        Calculate a relevance score for an image based on its metadata and content.
+        
+        Args:
+            image (Dict[str, str]): The image data including title and URL
+            content (str): The article content
+            query (str): The optimized search query
+            
+        Returns:
+            float: A relevance score (higher is more relevant)
+        """
+        score = 0.0
+        
+        # Extract key terms from content to compare with image metadata
+        content_words = set(re.findall(r'\b\w+\b', content.lower()))
+        query_words = set(query.lower().split())
+        
+        # Clean image title for comparison
+        image_title = image['title'].lower()
+        title_words = set(re.findall(r'\b\w+\b', image_title))
+        
+        # Score based on title word matches with content
+        content_match_count = len(title_words.intersection(content_words))
+        score += content_match_count * 1.0
+        
+        # Score based on title word matches with query (weighted higher)
+        query_match_count = len(title_words.intersection(query_words))
+        score += query_match_count * 2.0
+        
+        # Bonus points for each key term from query that appears in title
+        for term in query_words:
+            if term.lower() in image_title:
+                score += 0.5
+        
+        # Image quality factors - prefer larger images but not excessively
+        width = image.get('width', 0)
+        height = image.get('height', 0)
+        
+        # Bonus for images with good resolution (but not excessive)
+        if width > 0 and height > 0:
+            aspect_ratio = width / max(height, 1)
+            # Prefer images with reasonable aspect ratios (not too narrow or wide)
+            if 0.5 <= aspect_ratio <= 2.0:
+                score += 0.5
+            
+            # Prefer images with higher resolution (but not excessively large)
+            resolution = width * height
+            if 100000 <= resolution <= 2000000:  # Reasonable size range
+                score += 0.5
+        
+        return score
+    
+    async def rank_images(self, images: List[Dict[str, str]], content: str, query: str) -> List[Dict[str, str]]:
+        """
+        Rank images by relevance to the content and query.
+        
+        Args:
+            images (List[Dict[str, str]]): List of validated images
+            content (str): The article content
+            query (str): The optimized search query
+            
+        Returns:
+            List[Dict[str, str]]: List of images sorted by relevance (most relevant first)
+        """
+        if not images:
+            return []
+        
+        # Calculate relevance score for each image
+        scored_images = [(image, self.rank_image_by_relevance(image, content, query)) for image in images]
+        
+        # Sort images by score in descending order (highest score first)
+        scored_images.sort(key=lambda x: x[1], reverse=True)
+        
+        # Print ranking information for debugging
+        print("\nImage ranking results:")
+        for i, (image, score) in enumerate(scored_images, 1):
+            print(f"Rank {i}: '{image['title']}' - Score: {score:.2f}")
+        
+        # Return sorted images without scores
+        return [image for image, _ in scored_images]
+    
+    async def _api_request_with_backoff(self, session: aiohttp.ClientSession, params: Dict, max_retries: int = 3) -> Optional[Dict]:
+        """
+        Make API request with exponential backoff for retries
+        
+        Args:
+            session (aiohttp.ClientSession): Active client session
+            params (Dict): Request parameters
+            max_retries (int): Maximum number of retry attempts
+            
+        Returns:
+            Optional[Dict]: JSON response data or None if all retries failed
+        """
+        retry_count = 0
+        base_wait_time = 2  # Start with 2 seconds wait
+        
+        while retry_count <= max_retries:
+            if not self._check_rate_limit():
+                # If we've hit rate limits, inform and return None
+                print("Rate limit reached. Cannot make more API requests today.")
+                return None
+                
+            try:
+                async with session.get(self.base_url, params=params) as response:
+                    self._use_request()  # Count this request against our quota
+                    
+                    if response.status == 200:
+                        return await response.json()
+                    elif response.status == 429:  # Rate limit exceeded
+                        print(f"Rate limit exceeded (429). Retrying after backoff...")
+                        response_text = await response.text()
+                        print(f"Error details: {response_text[:200]}")
+                        
+                        # Mark that we've hit the quota limit
+                        self.requests_remaining = 0
+                        return None
+                    else:
+                        print(f"API request failed with status: {response.status}")
+                        response_text = await response.text()
+                        print(f"Response content: {response_text[:200]}")
+                        
+                        # For other errors, we'll retry with backoff
+                        if retry_count < max_retries:
+                            wait_time = base_wait_time * (2 ** retry_count)
+                            print(f"Retrying in {wait_time} seconds...")
+                            await asyncio.sleep(wait_time)
+                            retry_count += 1
+                        else:
+                            print("Max retries exceeded")
+                            return None
+            except Exception as e:
+                print(f"Error during API request: {str(e)}")
+                if retry_count < max_retries:
+                    wait_time = base_wait_time * (2 ** retry_count)
+                    print(f"Retrying in {wait_time} seconds...")
+                    await asyncio.sleep(wait_time)
+                    retry_count += 1
+                else:
+                    print("Max retries exceeded")
+                    return None
+        
+        return None  # If we get here, all retries failed
+            
+    async def search_images(self, query: str, num_images: int = 3, content: str = None) -> List[Dict[str, str]]:
+        """
+        Search for images using Google Custom Search API, validate and rank them by relevance
         
         Args:
             query (str): The search query
             num_images (int): Number of images to return (max 10)
+            content (str): Article content for ranking relevance (if None, uses query)
             
         Returns:
-            List[Dict[str, str]]: List of image information including URL and title
+            List[Dict[str, str]]: List of image information including URL and title, ranked by relevance
         """
+        # Use query as content if no content provided for ranking
+        content_for_ranking = content or query
+        
         # Choose optimization method based on configuration
         if self.use_llm:
             optimized_query = await self._optimize_query_with_llm(query)
@@ -187,15 +423,14 @@ class ImageSearcher:
         print(f"Original query: {query[:100]}...")
         print(f"Optimized query: {optimized_query}")
         
-        # Improved search parameters for more consistent results - removed restrictive filters
+        # Prepare search parameters
         params = {
             'key': self.api_key,
             'cx': self.custom_search_id,
             'q': optimized_query,
             'searchType': 'image',
-            'num': min(num_images, 10),
+            'num': min(num_images * 2, 10),  # Request more images than needed to account for filtering
             'safe': 'active',
-            # Removed imgSize and imgType to get more results
         }
         
         ssl_context = ssl.create_default_context(cafile=certifi.where())
@@ -203,37 +438,55 @@ class ImageSearcher:
         
         async with aiohttp.ClientSession(connector=connector) as session:
             try:
-                async with session.get(self.base_url, params=params) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        print(f"API Response status: {response.status}")
+                # Make API request with backoff and rate limiting
+                data = await self._api_request_with_backoff(session, params)
+                
+                # If API request failed and we couldn't get fresh data
+                if not data:
+                    print("API request failed or rate-limited. No fallback available.")
+                    return []
+                
+                # Process API response
+                if 'error' in data:
+                    print(f"API error: {data['error'].get('message', 'Unknown error')}")
+                    return []
+                    
+                if 'items' in data:
+                    # Create image data list
+                    images = [{
+                        'url': item['link'],
+                        'title': item['title'],
+                        'thumbnailUrl': item.get('image', {}).get('thumbnailLink', ''),
+                        'width': item.get('image', {}).get('width', 0),
+                        'height': item.get('image', {}).get('height', 0)
+                    } for item in data['items']]
+                    print(f"Found {len(images)} images from API")
+                    
+                    # Validate each image URL
+                    print("Validating image URLs...")
+                    validation_tasks = [self.validate_image_url(session, img) for img in images]
+                    validation_results = await asyncio.gather(*validation_tasks)
+                    
+                    # Filter valid images
+                    valid_images = [img for img, is_valid in zip(images, validation_results) if is_valid]
+                    print(f"After validation: {len(valid_images)} valid images out of {len(images)} total")
+                    
+                    if valid_images:
+                        # Rank the valid images by relevance to content
+                        ranked_images = await self.rank_images(valid_images, content_for_ranking, optimized_query)
+                        print(f"Ranked {len(ranked_images)} images by relevance to content")
                         
-                        # Debug response content
-                        if 'error' in data:
-                            print(f"API error: {data['error'].get('message', 'Unknown error')}")
-                            return []
-                            
-                        if 'items' in data:
-                            images = [{
-                                'url': item['link'],
-                                'title': item['title'],
-                                'thumbnailUrl': item.get('image', {}).get('thumbnailLink', ''),
-                                'width': item.get('image', {}).get('width', 0),
-                                'height': item.get('image', {}).get('height', 0)
-                            } for item in data['items']]
-                            print(f"Found {len(images)} images")
-                            return images
-                        else:
-                            error_msg = data.get('error', {}).get('message', 'No error message provided')
-                            queries_info = data.get('searchInformation', {})
-                            print(f"No items found in response. Error: {error_msg}")
-                            print(f"Search information: {queries_info}")
-                            return []
+                        # Return only the requested number of ranked images
+                        return ranked_images[:num_images]
                     else:
-                        print(f"API request failed with status: {response.status}")
-                        response_text = await response.text()
-                        print(f"Response content: {response_text[:200]}")  # Show limited content
+                        print("Warning: No valid images found after validation")
                         return []
+                else:
+                    error_msg = data.get('error', {}).get('message', 'No error message provided')
+                    queries_info = data.get('searchInformation', {})
+                    print(f"No items found in response. Error: {error_msg}")
+                    print(f"Search information: {queries_info}")
+                    return []
             except Exception as e:
                 print(f"Error searching for images: {str(e)}")
                 import traceback
