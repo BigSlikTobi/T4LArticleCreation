@@ -2,20 +2,22 @@ import asyncio
 import json
 from datetime import datetime
 from typing import Dict, List
-from database import fetch_unprocessed_articles, mark_article_as_processed, insert_processed_article
+from database import fetch_unprocessed_articles, mark_article_as_processed, insert_processed_article, fetch_teams
 from englishArticle import generate_english_article
 from germanArticle import generate_german_article
 from articleImage import ImageSearcher
+from team_classifier import classify_team  # Changed import to use simple classifier
 
-async def process_single_article(article: Dict, image_searcher: ImageSearcher) -> Dict:
+async def process_single_article(article: Dict, image_searcher: ImageSearcher, teams_data: List[Dict]) -> Dict:
     """
     Process a single article through the complete pipeline:
     1. Generate English version
     2. Generate German version
     3. Search for relevant images
-    4. Validate all required content is present
-    5. Save to NewsArticles database if valid
-    6. Mark source article as processed only if saved successfully
+    4. Classify article by team
+    5. Validate all required content is present
+    6. Save to NewsArticles database if valid
+    7. Mark source article as processed only if saved successfully
     """
     article_id = article['id']
     main_content = article.get('Content', '')
@@ -78,8 +80,32 @@ async def process_single_article(article: Dict, image_searcher: ImageSearcher) -
             print(f"- URL: {image['url']}")
             print(f"- Dimensions: {image['width']}x{image['height']}")
 
-        # Step 4: Validate that all required content is present
-        print("\nStep 4: Validating article content...")
+        # Step 4: Classify article by team
+        print("\nStep 4: Classifying article by team...")
+        team_name, confidence = await classify_team(english_headline, english_content)
+        team_assignment = None
+        team_id = None
+        
+        if team_name and confidence > 0.8 and team_name.lower() != "unknown":
+            # Find matching team in database
+            for team in teams_data:
+                db_team_name = team.get('fullName', '').lower()
+                if db_team_name and (
+                    team_name.lower() in db_team_name or 
+                    db_team_name in team_name.lower()
+                ):
+                    team_id = team['id']
+                    team_assignment = team_id
+                    print(f"Article classified as about team: {team.get('fullName')} (ID: {team_id}) with confidence {confidence:.2f}")
+                    break
+            
+            if not team_id:
+                print(f"Could not match team '{team_name}' to any team in database")
+        else:
+            print(f"Team classification confidence too low ({confidence:.2f}) or no team matched")
+
+        # Step 5: Validate that all required content is present
+        print("\nStep 5: Validating article content...")
         image1_url = images[0]['url'] if len(images) > 0 else ""
         
         # Check if any required content is missing
@@ -105,7 +131,11 @@ async def process_single_article(article: Dict, image_searcher: ImageSearcher) -
                 'english': english_result,
                 'german': german_result,
                 'images': images,
-                'isArticleCreated': isArticleCreated
+                'isArticleCreated': isArticleCreated,
+                'team_classification': {
+                    'team_id': team_id,
+                    'confidence': confidence
+                }
             }
             
             print(f"\n{'-'*80}")
@@ -114,7 +144,7 @@ async def process_single_article(article: Dict, image_searcher: ImageSearcher) -
             
             return result
 
-        # Step 5: Insert into NewsArticles database if all required content is present
+        # Step 6: Insert into NewsArticles database if all required content is present
         db_article = {
             "created_at": datetime.utcnow().isoformat(),
             "headlineEnglish": english_headline,
@@ -124,7 +154,8 @@ async def process_single_article(article: Dict, image_searcher: ImageSearcher) -
             "Image1": image1_url,
             "Image2": images[1]['url'] if len(images) > 1 else "",
             "Image3": images[2]['url'] if len(images) > 2 else "",
-            "SourceArticle": article_id
+            "SourceArticle": article_id,
+            "team": team_assignment  # Add team ID if confidence is high enough
         }
         
         success = await insert_processed_article(db_article)
@@ -134,7 +165,7 @@ async def process_single_article(article: Dict, image_searcher: ImageSearcher) -
         # Article was successfully created and saved
         isArticleCreated = True
         
-        # Step 6: Only mark the source article as processed if successfully saved
+        # Step 7: Only mark the source article as processed if successfully saved
         success = await mark_article_as_processed(article_id)
         if not success:
             raise Exception("Failed to mark source article as processed")
@@ -150,7 +181,12 @@ async def process_single_article(article: Dict, image_searcher: ImageSearcher) -
             'english': english_result,
             'german': german_result,
             'images': images,
-            'isArticleCreated': isArticleCreated
+            'isArticleCreated': isArticleCreated,
+            'team_classification': {
+                'team_id': team_id,
+                'confidence': confidence,
+                'assigned': team_assignment is not None
+            }
         }
 
         print(f"\n{'-'*80}")
@@ -182,18 +218,28 @@ async def run_pipeline():
     articles = await fetch_unprocessed_articles()
     print(f"Found {len(articles)} articles to process")
     
+    # Fetch teams data for classification
+    teams_data = await fetch_teams()
+    if not teams_data:
+        print("Warning: No teams data found for classification. Team assignment will be skipped.")
+    else:
+        print(f"Loaded {len(teams_data)} teams for classification")
+    
     # Process each article sequentially
     processed_count = 0
     saved_count = 0
     failed_count = 0
+    team_assigned_count = 0
     
     for article in articles:
         try:
-            result = await process_single_article(article, image_searcher)
+            result = await process_single_article(article, image_searcher, teams_data)
             processed_count += 1
             
             if result and result.get('isArticleCreated', False):
                 saved_count += 1
+                if result.get('team_classification', {}).get('assigned', False):
+                    team_assigned_count += 1
             else:
                 failed_count += 1
             
@@ -208,6 +254,7 @@ async def run_pipeline():
     print(f"\nPipeline complete!")
     print(f"Articles processed: {processed_count}")
     print(f"Articles saved to database: {saved_count}")
+    print(f"Articles with team assigned: {team_assigned_count}")
     print(f"Articles failed or rejected: {failed_count}")
 
 if __name__ == "__main__":

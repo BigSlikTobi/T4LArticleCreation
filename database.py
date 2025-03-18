@@ -59,6 +59,39 @@ async def fetch_unprocessed_articles() -> List[Dict]:
         print(f"Error fetching articles: {e}")
         return []
 
+async def fetch_teams() -> List[Dict]:
+    """
+    Fetches all teams from the Teams table.
+    
+    Returns:
+        List[Dict]: List of teams with their IDs and fullNames
+    """
+    try:
+        print("Fetching teams from database...")
+        headers = {
+            "apikey": supabase_key,
+            "Authorization": f"Bearer {supabase_key}"
+        }
+        url = f"{supabase_url}/rest/v1/Teams"
+        params = {
+            "select": "id,fullName"  # Updated to use fullName instead of name
+        }
+        
+        response = requests.get(url, headers=headers, params=params)
+        
+        if response.status_code == 200:
+            teams = response.json()
+            print(f"Successfully fetched {len(teams)} teams")
+            return teams
+        else:
+            print(f"API request failed with status code: {response.status_code}")
+            print(f"Response: {response.text}")
+            return []
+            
+    except Exception as e:
+        print(f"Error fetching teams: {e}")
+        return []
+
 async def mark_article_as_processed(article_id: int) -> bool:
     """
     Marks an article as processed in the database by setting isArticleCreated to true.
@@ -97,7 +130,8 @@ async def insert_processed_article(article_data: Dict) -> bool:
             "Image1": article_data["Image1"],
             "Image2": article_data["Image2"],
             "Image3": article_data["Image3"],
-            "SourceArticle": article_data["SourceArticle"]
+            "SourceArticle": article_data["SourceArticle"],
+            "team": article_data.get("team", None)  # Add the team field
         }).execute()
         return True
     except Exception as e:
