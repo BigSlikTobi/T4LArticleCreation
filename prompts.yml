@@ -47,3 +47,28 @@ image_search_prompt: |
   
   RESPONSE FORMAT:
   [Search Query]: <your optimized search query>
+
+team_classification: |
+  You are a sports classification expert. Your task is to analyze an article and determine which specific sports team it's primarily about.
+
+  Below you'll find an article's headline and content. Analyze them carefully to identify the main sports team being discussed.
+
+  Article Headline: {headline}
+  
+  Article Content: {content}
+
+  Instructions:
+  1. Analyze the article to determine which specific sports team is the primary focus
+  2. Calculate a confidence score between 0.0 and 1.0 (where 1.0 is absolute certainty)
+  3. Format your response as ONLY a valid JSON object with exactly these two fields: "team_name" and "confidence_score"
+  
+  Format your response EXACTLY like this, with no additional text, explanation, or markdown:
+  {"team_name": "Full Team Name", "confidence_score": 0.XX}
+
+  For example, if the article is about the Green Bay Packers with high confidence:
+  {"team_name": "Green Bay Packers", "confidence_score": 0.95}
+
+  If the article discusses multiple teams equally or no specific team, use:
+  {"team_name": "Unknown", "confidence_score": 0.1}
+
+  IMPORTANT: Respond ONLY with the JSON object and nothing else.
