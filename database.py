@@ -110,6 +110,26 @@ async def mark_article_as_processed(article_id: int) -> bool:
         print(f"Error marking article {article_id} as processed: {e}")
         return False
 
+async def check_for_updates(source_article_id: int) -> bool:
+    """
+    Checks if the article should be marked as an update by looking up the ArticleVector table.
+    
+    Args:
+        source_article_id (int): The SourceArticle ID to check
+        
+    Returns:
+        bool: True if this article should be marked as an update
+    """
+    try:
+        response = supabase.table("ArticleVector").select("update").eq("SourceArticle", source_article_id).execute()
+        if response.data:
+            article_vector = response.data[0]
+            return bool(article_vector.get("update"))  # Return True if updates array is not empty
+        return False
+    except Exception as e:
+        print(f"Error checking for updates: {e}")
+        return False
+
 async def insert_processed_article(article_data: Dict) -> bool:
     """
     Inserts a processed article into the NewsArticles table.
@@ -121,19 +141,76 @@ async def insert_processed_article(article_data: Dict) -> bool:
         bool: True if successful, False otherwise
     """
     try:
+        # Check if this article is an update
+        is_update = await check_for_updates(article_data["SourceArticle"])
+        
         response = supabase.table("NewsArticles").insert({
             "created_at": article_data["created_at"],
             "headlineEnglish": article_data["headlineEnglish"],
             "headlineGerman": article_data["headlineGerman"],
             "ContentEnglish": article_data["ContentEnglish"],
-            "ConetentGerman": article_data["ContentGerman"],  # Fixed typo in column name
+            "ConetentGerman": article_data["ContentGerman"],
             "Image1": article_data["Image1"],
             "Image2": article_data["Image2"],
             "Image3": article_data["Image3"],
             "SourceArticle": article_data["SourceArticle"],
-            "team": article_data.get("team", None)  # Add the team field
+            "team": article_data.get("team", None),
+            "isUpdate": is_update
         }).execute()
         return True
     except Exception as e:
         print(f"Error inserting processed article: {e}")
         return False
+
+async def batch_update_article_status() -> Dict:
+    """
+    Batch processes all existing articles in NewsArticles table to update their isUpdate status
+    based on ArticleVector table data.
+    
+    Returns:
+        Dict: Statistics about the operation (total processed, updated count, errors)
+    """
+    try:
+        stats = {"total": 0, "updated": 0, "errors": 0}
+        
+        # Fetch all articles from NewsArticles table
+        response = supabase.table("NewsArticles").select("id,SourceArticle,isUpdate").execute()
+        
+        if not response.data:
+            print("No articles found in NewsArticles table")
+            return stats
+            
+        articles = response.data
+        stats["total"] = len(articles)
+        print(f"Processing {len(articles)} articles...")
+        
+        # Process each article
+        for article in articles:
+            try:
+                # Check ArticleVector table
+                vector_response = supabase.table("ArticleVector").select("update").eq("SourceArticle", article["SourceArticle"]).execute()
+                
+                if vector_response.data:
+                    article_vector = vector_response.data[0]
+                    should_be_update = bool(article_vector.get("update"))
+                    
+                    # Only update if the status needs to change
+                    if article.get("isUpdate") != should_be_update:
+                        update_response = supabase.table("NewsArticles").update(
+                            {"isUpdate": should_be_update}
+                        ).eq("id", article["id"]).execute()
+                        
+                        if update_response.data:
+                            stats["updated"] += 1
+                            print(f"Updated article {article['id']} isUpdate status to {should_be_update}")
+                
+            except Exception as e:
+                print(f"Error processing article {article['id']}: {e}")
+                stats["errors"] += 1
+                
+        print(f"Batch processing complete. Stats: {stats}")
+        return stats
+        
+    except Exception as e:
+        print(f"Error in batch processing: {e}")
+        return {"total": 0, "updated": 0, "errors": 1}
