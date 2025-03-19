@@ -149,7 +149,7 @@ async def insert_processed_article(article_data: Dict) -> bool:
             "headlineEnglish": article_data["headlineEnglish"],
             "headlineGerman": article_data["headlineGerman"],
             "ContentEnglish": article_data["ContentEnglish"],
-            "ConetentGerman": article_data["ContentGerman"],
+            "ContentGerman": article_data["ContentGerman"],
             "Image1": article_data["Image1"],
             "Image2": article_data["Image2"],
             "Image3": article_data["Image3"],
