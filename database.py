@@ -175,6 +175,39 @@ async def check_for_updates(source_article_id: int) -> bool:
         print(f"Error checking for updates: {e}")
         return False
 
+async def update_articles_updated_by(article_id: int, source_article_id: int) -> bool:
+    """
+    Updates the UpdatedBy field for articles that are updated by the current article.
+    
+    Args:
+        article_id (int): The ID of the current article (the one doing the updating)
+        source_article_id (int): The SourceArticle ID to check for updates
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        # Get the updated articles from ArticleVector table
+        response = supabase.table("ArticleVector").select("update").eq("SourceArticle", source_article_id).execute()
+        
+        if response.data and response.data[0].get("update"):
+            updated_articles = response.data[0]["update"]
+            if updated_articles:
+                # Update all articles that are being updated
+                for updated_source_id in updated_articles:
+                    # Find the NewsArticle with this SourceArticle ID
+                    update_response = supabase.table("NewsArticles").update(
+                        {"UpdatedBy": article_id}
+                    ).eq("SourceArticle", updated_source_id).execute()
+                    
+                    if not update_response.data:
+                        print(f"Warning: Could not update UpdatedBy for article with SourceArticle {updated_source_id}")
+        
+        return True
+    except Exception as e:
+        print(f"Error updating UpdatedBy field: {e}")
+        return False
+
 async def insert_processed_article(article_data: Dict) -> bool:
     """
     Inserts a processed article into the NewsArticles table.
@@ -189,6 +222,7 @@ async def insert_processed_article(article_data: Dict) -> bool:
         # Check if this article is an update
         is_update = await check_for_updates(article_data["SourceArticle"])
         
+        # Insert the article
         response = supabase.table("NewsArticles").insert({
             "created_at": article_data["created_at"],
             "headlineEnglish": article_data["headlineEnglish"],
@@ -204,9 +238,19 @@ async def insert_processed_article(article_data: Dict) -> bool:
             "team": article_data.get("team", None),
             "isUpdate": is_update
         }).execute()
+
+        if not response.data:
+            return False
+
+        # If article was successfully inserted and it's an update, update the UpdatedBy field
+        # for articles that this one updates
+        article_id = response.data[0]["id"]
+        if is_update:
+            await update_articles_updated_by(article_id, article_data["SourceArticle"])
+
         return True
     except Exception as e:
-        print(f"Error inserting processed article: {e}")
+        print(f"Error inserting article: {e}")
         return False
 
 async def batch_update_article_status() -> Dict:
