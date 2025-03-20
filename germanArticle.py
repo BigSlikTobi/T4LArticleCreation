@@ -30,8 +30,8 @@ with open(os.path.join(os.path.dirname(__file__), "prompts.yml"), "r", encoding=
 
 async def generate_german_article(main_content: str, verbose: bool = False) -> dict:
     """
-    Generates a German article with headline and structured content.
-    Returns a dict with 'headline' and 'content'.
+    Generates a German article with headline, summary, and structured content.
+    Returns a dict with 'headline', 'summary', and 'content'.
     If verbose is True, includes the raw Gemini response in the result under 'raw_response'.
     """
     prompt = f"""
@@ -44,6 +44,7 @@ Main content (main_content) – the central story:
 Please provide your answer strictly in the following JSON format without any additional text:
 {{
   "headline": "<h1>Your generated headline</h1>",
+  "summary": "<p>Your generated summary</p>",
   "content": "<div>Your structured article content as HTML, including <p>, <h2>, etc.</div>"
 }}
 """
@@ -89,6 +90,7 @@ Please provide your answer strictly in the following JSON format without any add
         # Build the result from the parsed data directly
         result = {
             "headline": response_data.get("headline", ""),
+            "summary": response_data.get("summary", ""),
             "content": response_data.get("content", "")
         }
         if verbose:
@@ -100,23 +102,27 @@ Please provide your answer strictly in the following JSON format without any add
         try:
             headline_start = raw_response_clean.find('"headline": "') + 12
             headline_end = raw_response_clean.find('",', headline_start)
+            summary_start = raw_response_clean.find('"summary": "') + 11
+            summary_end = raw_response_clean.find('",', summary_start)
             content_start = raw_response_clean.find('"content": "') + 11
             content_end = raw_response_clean.rfind('"')
             
             headline = raw_response_clean[headline_start:headline_end]
+            summary = raw_response_clean[summary_start:summary_end]
             content = raw_response_clean[content_start:content_end]
             
             return {
                 "headline": headline,
+                "summary": summary,
                 "content": content,
                 "raw_response": raw_response_clean if verbose else ""
             }
         except Exception as e:
             print(f"Fallback parsing failed: {e}")
-            return {"headline": "", "content": "", "raw_response": raw_response_clean if verbose else ""}
+            return {"headline": "", "summary": "", "content": "", "raw_response": raw_response_clean if verbose else ""}
     except Exception as e:
         print(f"Unknown error: {e}")
-        return {"headline": "", "content": "", "raw_response": raw_response_clean if verbose else ""}
+        return {"headline": "", "summary": "", "content": "", "raw_response": raw_response_clean if verbose else ""}
 
 async def fetch_articles_to_process():
     """
@@ -182,11 +188,13 @@ async def main():
         try:
             article_data = await generate_german_article(main_content, verbose=True)
             headline = article_data.get("headline", "")
+            summary = article_data.get("summary", "")
             content = article_data.get("content", "")
             
             # Store the results in memory
             german_articles[str(article_id)] = {
                 "headline": headline,
+                "summary": summary,
                 "content": content,
                 "originalSource": article.get('source'),
                 "originalHeadline": article.get('headline', ''),
@@ -196,7 +204,8 @@ async def main():
         except Exception as e:
             print(f"[ERROR] Error generating German article for {article_id}: {e}")
             german_articles[str(article_id)] = {
-                "headline": "", 
+                "headline": "",
+                "summary": "", 
                 "content": "",
                 "error": str(e)
             }

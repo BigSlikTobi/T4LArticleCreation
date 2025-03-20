@@ -12,6 +12,8 @@ import time
 import hashlib
 from pathlib import Path
 from LLMSetup import initialize_model
+from duckduckgo_search import DDGS
+from datetime import datetime, timedelta
 
 # Load environment variables
 load_dotenv()
@@ -64,6 +66,7 @@ class ImageSearcher:
         self.last_request_time = 0
         
         self.base_url = "https://www.googleapis.com/customsearch/v1"
+        self.ddgs_enabled = True  # Flag to control DDGS fallback
     
     def _check_rate_limit(self):
         """Check and update rate limiting, reset if needed"""
@@ -213,7 +216,7 @@ class ImageSearcher:
 
     async def validate_image_url(self, session: aiohttp.ClientSession, image_data: Dict[str, str]) -> bool:
         """
-        Validate if a URL actually points to a valid image by making a HEAD request.
+        Validate if a URL actually points to a valid image by making a HEAD/GET request.
         
         Args:
             session (aiohttp.ClientSession): The active client session
@@ -223,38 +226,44 @@ class ImageSearcher:
             bool: True if the URL is a valid image, False otherwise
         """
         url = image_data['url']
+        
+        # Skip validation for known image hosting services that block HEAD requests
+        known_image_hosts = ['gettyimages.com', 'shutterstock.com', 'istockphoto.com']
+        if any(host in url.lower() for host in known_image_hosts):
+            return True
+
         try:
-            # Try HEAD request first (more efficient)
-            async with session.head(url, allow_redirects=True, timeout=5) as response:
+            # Try GET request with timeout
+            async with session.get(url, allow_redirects=True, timeout=5) as response:
                 if response.status != 200:
                     print(f"Invalid image URL (status {response.status}): {url}")
                     return False
                 
                 # Check content type
                 content_type = response.headers.get('Content-Type', '')
-                if not content_type.startswith('image/'):
-                    print(f"Invalid content type ({content_type}): {url}")
-                    return False
+                content_type = content_type.lower()
                 
-                return True
-        except Exception as e:
-            # If HEAD fails, try GET as fallback (some servers don't support HEAD)
-            try:
-                async with session.get(url, timeout=5) as response:
-                    if response.status != 200:
-                        print(f"Invalid image URL (status {response.status}): {url}")
-                        return False
-                    
-                    content_type = response.headers.get('Content-Type', '')
-                    if not content_type.startswith('image/'):
+                # Accept various image content types
+                valid_types = ['image/', 'application/octet-stream']  # Some servers send binary type
+                if not any(t in content_type for t in valid_types):
+                    # If content type is empty but URL ends with image extension, accept it
+                    image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+                    if not any(url.lower().endswith(ext) for ext in image_extensions):
                         print(f"Invalid content type ({content_type}): {url}")
                         return False
-                    
-                    return True
-            except Exception as e:
-                print(f"Error validating image URL {url}: {str(e)}")
-                return False
+                
+                return True
+                
+        except Exception as e:
+            print(f"Error validating image URL {url}: {str(e)}")
             
+            # If validation fails but URL looks like an image, accept it
+            image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+            if any(url.lower().endswith(ext) for ext in image_extensions):
+                return True
+                
+            return False
+
     def rank_image_by_relevance(self, image: Dict[str, str], content: str, query: str) -> float:
         """
         Calculate a relevance score for an image based on its metadata and content.
@@ -398,7 +407,68 @@ class ImageSearcher:
                     return None
         
         return None  # If we get here, all retries failed
-            
+
+    async def _search_images_ddgs(self, query: str, num_images: int = 3) -> List[Dict[str, str]]:
+        """
+        Fallback image search using DuckDuckGo when Google API quota is exceeded.
+        """
+        try:
+            print("Using DuckDuckGo Search as fallback...")
+            filtered_results = []
+            all_results = []
+            cutoff_date = datetime.now() - timedelta(days=14)
+
+            with DDGS() as ddgs:
+                page = 1
+                max_pages = 5
+                while page <= max_pages:
+                    total_requested = page * 10
+                    results = list(ddgs.images(query, max_results=total_requested))
+                    
+                    # Store all results for potential backup
+                    for result in results:
+                        if result not in all_results:
+                            all_results.append(result)
+                    
+                    current_page_results = results[(page-1)*10 : page*10]
+                    if not current_page_results:
+                        break
+
+                    for img in current_page_results:
+                        try:
+                            if 'width' in img and 'height' in img and img['height'] > 0:
+                                aspect = img['width'] / img['height']
+                                if abs(aspect - (16/9)) > 0.1:
+                                    continue
+                            else:
+                                continue
+                            
+                            filtered_results.append(img)
+                        except Exception as e:
+                            continue
+
+                    if len(filtered_results) >= num_images:
+                        break
+                    page += 1
+
+            # If we don't have enough filtered results, supplement with unfiltered
+            if len(filtered_results) < num_images:
+                filtered_results.extend([r for r in all_results if r not in filtered_results])
+                filtered_results = filtered_results[:num_images]
+
+            # Convert to our standard format
+            return [{
+                'url': result.get('image', ''),
+                'title': result.get('title', ''),
+                'thumbnailUrl': result.get('thumbnail', ''),
+                'width': result.get('width', 0),
+                'height': result.get('height', 0)
+            } for result in filtered_results[:num_images]]
+
+        except Exception as e:
+            print(f"DuckDuckGo search error: {e}")
+            return []
+
     async def search_images(self, query: str, num_images: int = 3, content: str = None) -> List[Dict[str, str]]:
         """
         Search for images using Google Custom Search API, validate and rank them by relevance
@@ -444,6 +514,18 @@ class ImageSearcher:
                 # If API request failed and we couldn't get fresh data
                 if not data:
                     print("API request failed or rate-limited. No fallback available.")
+                    if self.ddgs_enabled:
+                        print("Google API request failed. Trying DuckDuckGo fallback...")
+                        ddgs_results = await self._search_images_ddgs(optimized_query, num_images)
+                        if ddgs_results:
+                            # Validate and rank DDGS results
+                            validation_tasks = [self.validate_image_url(session, img) for img in ddgs_results]
+                            validation_results = await asyncio.gather(*validation_tasks)
+                            valid_images = [img for img, is_valid in zip(ddgs_results, validation_results) if is_valid]
+                            
+                            if valid_images:
+                                ranked_images = await self.rank_images(valid_images, content_for_ranking, optimized_query)
+                                return ranked_images[:num_images]
                     return []
                 
                 # Process API response

@@ -108,11 +108,17 @@ async def process_single_article(article: Dict, image_searcher: ImageSearcher, t
         print("\nStep 5: Validating article content...")
         image1_url = images[0]['url'] if len(images) > 0 else ""
         
+        # Extract summaries and clean HTML tags
+        english_summary = english_result.get('summary', '').replace('<p>', '').replace('</p>', '')
+        german_summary = german_result.get('summary', '').replace('<p>', '').replace('</p>', '')
+        
         # Check if any required content is missing
-        if not english_headline or not german_headline or not english_content or not german_content or not image1_url:
+        if not english_headline or not german_headline or not english_content or not german_content or not image1_url or not english_summary or not german_summary:
             missing_parts = []
             if not english_headline: missing_parts.append("English headline")
             if not german_headline: missing_parts.append("German headline")
+            if not english_summary: missing_parts.append("English summary")
+            if not german_summary: missing_parts.append("German summary")
             if not english_content: missing_parts.append("English content")
             if not german_content: missing_parts.append("German content") 
             if not image1_url: missing_parts.append("Image 1")
@@ -128,8 +134,16 @@ async def process_single_article(article: Dict, image_searcher: ImageSearcher, t
                     'source': article.get('source'),
                     'url': article.get('url', '')
                 },
-                'english': english_result,
-                'german': german_result,
+                'english': {
+                    'headline': english_headline,
+                    'summary': english_summary,
+                    'content': english_content
+                },
+                'german': {
+                    'headline': german_headline,
+                    'summary': german_summary,
+                    'content': german_content
+                },
                 'images': images,
                 'isArticleCreated': isArticleCreated,
                 'team_classification': {
@@ -149,13 +163,15 @@ async def process_single_article(article: Dict, image_searcher: ImageSearcher, t
             "created_at": datetime.utcnow().isoformat(),
             "headlineEnglish": english_headline,
             "headlineGerman": german_headline,
-            "contentEnglish": english_content,
-            "contentGerman": german_content,
+            "SummaryEnglish": english_summary,
+            "SummaryGerman": german_summary,
+            "ContentEnglish": english_content,
+            "ContentGerman": german_content,
             "Image1": image1_url,
             "Image2": images[1]['url'] if len(images) > 1 else "",
             "Image3": images[2]['url'] if len(images) > 2 else "",
             "SourceArticle": article_id,
-            "team": team_assignment  # Add team ID if confidence is high enough
+            "team": team_assignment
         }
         
         success = await insert_processed_article(db_article)
