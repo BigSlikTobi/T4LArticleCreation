@@ -23,8 +23,8 @@ with open(os.path.join(os.path.dirname(__file__), "prompts.yml"), "r", encoding=
 
 async def generate_english_article(main_content: str, verbose: bool = False) -> dict:
     """
-    Generates an English article with headline and structured content.
-    Returns a dict with 'headline' and 'content'.
+    Generates an English article with headline, summary, and structured content.
+    Returns a dict with 'headline', 'summary', and 'content'.
     If verbose is True, includes the raw Gemini response in the result under 'raw_response'.
     """
     prompt = f"""
@@ -37,6 +37,7 @@ Main content (main_content) – the central story:
 Please provide your answer strictly in the following JSON format without any additional text:
 {{
   "headline": "<h1>Your generated headline</h1>",
+  "summary": "<p>Your generated summary</p>",
   "content": "<div>Your structured article content as HTML, including <p>, <h2>, etc.</div>"
 }}
 """
@@ -76,12 +77,13 @@ Please provide your answer strictly in the following JSON format without any add
         raw_response_clean = raw_response  # Fallback if markers are not found
 
     try:
-        # Removed unnecessary newline replacement and quote stripping
+        # Parse the JSON response
         response_data = json.loads(raw_response_clean)
         
         # Build the result from the parsed data directly
         result = {
             "headline": response_data.get("headline", ""),
+            "summary": response_data.get("summary", ""),
             "content": response_data.get("content", "")
         }
         if verbose:
@@ -93,20 +95,24 @@ Please provide your answer strictly in the following JSON format without any add
         try:
             headline_start = raw_response_clean.find('"headline": "') + 12
             headline_end = raw_response_clean.find('",', headline_start)
+            summary_start = raw_response_clean.find('"summary": "') + 11
+            summary_end = raw_response_clean.find('",', summary_start)
             content_start = raw_response_clean.find('"content": "') + 11
             content_end = raw_response_clean.rfind('"')
             
             headline = raw_response_clean[headline_start:headline_end]
+            summary = raw_response_clean[summary_start:summary_end]
             content = raw_response_clean[content_start:content_end]
             
             return {
                 "headline": headline,
+                "summary": summary,
                 "content": content,
                 "raw_response": raw_response_clean if verbose else ""
             }
         except Exception as e:
             print(f"Fallback parsing failed: {e}")
-            return {"headline": "", "content": "", "raw_response": raw_response_clean if verbose else ""}
+            return {"headline": "", "summary": "", "content": "", "raw_response": raw_response_clean if verbose else ""}
     except Exception as e:
         print(f"Unknown error: {e}")
-        return {"headline": "", "content": "", "raw_response": raw_response_clean if verbose else ""}
+        return {"headline": "", "summary": "", "content": "", "raw_response": raw_response_clean if verbose else ""}
