@@ -12,10 +12,45 @@ supabase_url = os.environ.get("SUPABASE_URL")
 supabase_key = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(supabase_url, supabase_key)
 
+async def fetch_primary_sources() -> List[int]:
+    """
+    Fetches all primary news sources from the NewsSource table.
+    
+    Returns:
+        List[int]: List of source IDs that have isPrimarySource set to True
+    """
+    try:
+        print("Fetching primary news sources...")
+        headers = {
+            "apikey": supabase_key,
+            "Authorization": f"Bearer {supabase_key}"
+        }
+        url = f"{supabase_url}/rest/v1/NewsSource"
+        params = {
+            "select": "id",
+            "isPrimarySource": "eq.true"
+        }
+        
+        response = requests.get(url, headers=headers, params=params)
+        
+        if response.status_code == 200:
+            sources = response.json()
+            source_ids = [source["id"] for source in sources]
+            print(f"Successfully fetched {len(source_ids)} primary sources: {source_ids}")
+            return source_ids
+        else:
+            print(f"API request failed with status code: {response.status_code}")
+            print(f"Response: {response.text}")
+            return []
+            
+    except Exception as e:
+        print(f"Error fetching primary sources: {e}")
+        return []
+
 async def fetch_unprocessed_articles() -> List[Dict]:
     """
     Fetches articles from the SourceArticles table that meet the criteria:
-    - From source 1, 2, or 4
+    - From primary sources (isPrimarySource = true in NewsSource table)
     - Have contentType 'news_article'
     - isArticleCreated is false or null
     
@@ -23,6 +58,12 @@ async def fetch_unprocessed_articles() -> List[Dict]:
         List[Dict]: List of articles meeting the criteria
     """
     try:
+        # Get primary sources
+        primary_sources = await fetch_primary_sources()
+        if not primary_sources:
+            print("No primary sources found, using fallback sources [1, 2, 4]")
+            primary_sources = [1, 2, 4]  # Fallback to original sources if fetch fails
+            
         print("Fetching unprocessed articles from database...")
         headers = {
             "apikey": supabase_key,
@@ -30,9 +71,13 @@ async def fetch_unprocessed_articles() -> List[Dict]:
         }
 
         url = f"{supabase_url}/rest/v1/SourceArticles"
+        
+        # Convert list of IDs to comma-separated string for the in.() operator
+        source_list = f"({','.join(map(str, primary_sources))})"
+        
         params = {
             "select": "*",
-            "source": "in.(1,2,4)",
+            "source": f"in.{source_list}",
             "contentType": "eq.news_article",
             "isArticleCreated": "eq.false"
         }
@@ -44,7 +89,7 @@ async def fetch_unprocessed_articles() -> List[Dict]:
             # Double-check the filters in Python just to be safe
             filtered_articles = [
                 article for article in articles 
-                if article.get('source') in [1, 2, 4] 
+                if article.get('source') in primary_sources 
                 and article.get('contentType') == 'news_article'
                 and not article.get('isArticleCreated', False)
             ]
@@ -148,8 +193,8 @@ async def insert_processed_article(article_data: Dict) -> bool:
             "created_at": article_data["created_at"],
             "headlineEnglish": article_data["headlineEnglish"],
             "headlineGerman": article_data["headlineGerman"],
-            "ContentEnglish": article_data["ContentEnglish"],
-            "ContentGerman": article_data["ContentGerman"],
+            "contentEnglish": article_data["ContentEnglish"],
+            "contentGerman": article_data["ContentGerman"],
             "Image1": article_data["Image1"],
             "Image2": article_data["Image2"],
             "Image3": article_data["Image3"],
