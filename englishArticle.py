@@ -1,6 +1,7 @@
 import asyncio
 import json  # Added missing import
 import google.generativeai as genai
+from google.genai import types
 import sys
 import os
 import yaml
@@ -42,13 +43,15 @@ Please provide your answer strictly in the following JSON format without any add
 }}
 """
     try:
-        # Generate content with increased max_output_tokens.
+        # Generate content with increased max_output_tokens using the grounding tool.
         response_obj = await asyncio.to_thread(
             gemini_model.generate_content,
-            prompt,
-            generation_config=genai.types.GenerationConfig(
+            model=model_info["model_name"],
+            contents=prompt,
+            config=types.GenerateContentConfig(
                 temperature=0.7,
                 max_output_tokens=8192,
+                tools=model_info["tools"]
             )
         )
         raw_response = response_obj.text
@@ -60,9 +63,8 @@ Please provide your answer strictly in the following JSON format without any add
         raw_response = ""
 
     # Remove markdown code block markers if present.
-    if (raw_response.strip().startswith("```")):
+    if raw_response.strip().startswith("```"):
         lines = raw_response.strip().splitlines()
-        # Remove the first line (```json) and the last line if it's a markdown fence.
         if lines[0].startswith("```"):
             lines = lines[1:]
         if lines and lines[-1].startswith("```"):
@@ -71,16 +73,13 @@ Please provide your answer strictly in the following JSON format without any add
         
     json_start = raw_response.find("{")
     json_end = raw_response.rfind("}") + 1
-    if (json_start != -1 and json_end != -1):
+    if json_start != -1 and json_end != -1:
         raw_response_clean = raw_response[json_start:json_end]
     else:
         raw_response_clean = raw_response  # Fallback if markers are not found
 
     try:
-        # Parse the JSON response
         response_data = json.loads(raw_response_clean)
-        
-        # Build the result from the parsed data directly
         result = {
             "headline": response_data.get("headline", ""),
             "summary": response_data.get("summary", ""),
@@ -91,7 +90,6 @@ Please provide your answer strictly in the following JSON format without any add
         return result
     except json.JSONDecodeError as e:
         print(f"Error parsing JSON response: {e}")
-        # Fallback: Try to extract content using string manipulation
         try:
             headline_start = raw_response_clean.find('"headline": "') + 12
             headline_end = raw_response_clean.find('",', headline_start)
