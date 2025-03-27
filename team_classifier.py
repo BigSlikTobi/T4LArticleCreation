@@ -13,7 +13,7 @@ load_dotenv()
 # Initialize Gemini model directly
 api_key = os.environ.get("GEMINI_API_KEY")
 genai.configure(api_key=api_key)
-model = genai.GenerativeModel("models/gemini-2.0-flash-thinking-exp-01-21")
+model = genai.GenerativeModel("models/gemini-2.0-flash-lite")
 
 # Initialize Supabase client
 supabase_url = os.environ.get("SUPABASE_URL")

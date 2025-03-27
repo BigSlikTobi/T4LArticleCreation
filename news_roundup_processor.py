@@ -28,8 +28,8 @@ supabase_key = os.environ.get("SUPABASE_KEY")
 # Initialize Gemini models:
 # - Use flash for content generation
 # - Use lite for translation
-content_model_info = initialize_model("gemini", "default")
-translation_model_info = initialize_model("gemini", "default")
+content_model_info = initialize_model("gemini", "flash")
+translation_model_info = initialize_model("gemini", "lite")
 content_model = content_model_info["model"]
 translation_model = translation_model_info["model"]
 

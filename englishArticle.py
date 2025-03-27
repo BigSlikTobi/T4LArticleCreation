@@ -15,7 +15,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 load_dotenv()
 
 # Initialize Gemini model using LLMSetup
-model_info = initialize_model("gemini")
+model_info = initialize_model("gemini","default")
 gemini_model = model_info["model"]
 
 # Load prompts from YAML file
