@@ -88,3 +88,42 @@ team_classification: |
   {"team_name": "Unknown", "confidence_score": 0.1}
 
   IMPORTANT: Respond ONLY with the JSON object and nothing else.
+
+news_roundup_topics: |
+  You are a sports news analyst. The following text contains a round-up of multiple sports news topics.
+  
+  ### Instructions:  
+      Analyze the text and extract each distinct topic. For each topic:  
+      1. **Identify** where a new topic starts and ends.  
+      2. **Provide** a **concise yet comprehensive** summary in **no more than 70 words**.  
+      ### Requirements:  
+      - Be **specific and factual**—name the **exact** teams, players, events, and outcomes if available.  
+      - Avoid vague phrasing like *"a team won a game"*—instead, specify *"The Kansas City Chiefs defeated the San Francisco 49ers 31-20 in Super Bowl LIV."*  
+      - Ensure the summary is **self-contained**, covering the most critical facts and implications.  
+      - **Do not** include any personal opinions or subjective language.    
+      
+  Return your analysis ONLY as a JSON array where each object represents a topic:
+      
+  [
+    {
+      "information": "One paragraph summary of topic 1 (max 70 words)"
+    },
+    {
+      "information": "One paragraph summary of topic 2 (max 70 words)"
+    }
+  ]
+  
+  Here's the text to analyze:
+  {content}
+
+news_roundup_translation: |
+  Translate the following English sports news paragraph to German. 
+  Maintain the same level of detail and professional sports journalism style.
+  Make sure the translation is natural and fluent German, not a literal word-for-word translation.
+  IMPORTANT: 
+  1. Respond ONLY with the German translation, no explanations or other text
+  2. The translation must not exceed 70 words
+  3. Keep the same key information as the English text
+  
+  English paragraph:
+  {info}
