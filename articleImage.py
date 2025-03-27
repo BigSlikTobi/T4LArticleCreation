@@ -3,13 +3,15 @@ import aiohttp
 import asyncio
 import ssl
 import certifi
-from typing import List, Dict, Tuple, Optional
+import io
+import hashlib
+from supabase import create_client, Client
+from typing import List, Dict, Optional
 from dotenv import load_dotenv
 import re
 import yaml
 import json
 import time
-import hashlib
 from pathlib import Path
 from LLMSetup import initialize_model
 from duckduckgo_search import DDGS
@@ -34,7 +36,6 @@ class ImageSearcher:
             print(f"Error loading prompts from YAML: {e}")
             self.prompts = {}
         
-        # Debug environment variables
         if not self.api_key:
             print("Warning: Custom_Search_API_KEY environment variable is not set")
         if not self.custom_search_id:
@@ -53,7 +54,7 @@ class ImageSearcher:
                 print(f"Failed to initialize LLM: {e}. Falling back to heuristic query optimization.")
                 self.use_llm = False
         
-        print(f"ImageSearcher initialized successfully")
+        print("ImageSearcher initialized successfully")
         print(f"API Key length: {len(self.api_key)} characters")
         print(f"Custom Search ID length: {len(self.custom_search_id)} characters")
         print(f"Using LLM for query optimization: {self.use_llm}")
@@ -68,6 +69,13 @@ class ImageSearcher:
         
         self.base_url = "https://www.googleapis.com/customsearch/v1"
         self.ddgs_enabled = True  # Enable DuckDuckGo fallback
+
+        # Initialize Supabase client for uploading images
+        SUPABASE_URL = os.environ.get("SUPABASE_URL")
+        SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            raise ValueError("Missing SUPABASE_URL or SUPABASE_KEY environment variables")
+        self.supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
     
     def _check_rate_limit(self):
         current_time = time.time()
@@ -86,7 +94,7 @@ class ImageSearcher:
             print(f"API quota exceeded. Reset in {seconds_until_reset/60:.1f} minutes.")
             return False
         return True
-    
+
     def _use_request(self):
         self.requests_remaining -= 1
         print(f"API request used. {self.requests_remaining} requests remaining for today.")
@@ -173,7 +181,10 @@ class ImageSearcher:
         if any(host in url.lower() for host in known_image_hosts):
             return True
         try:
-            async with session.get(url, allow_redirects=True, timeout=5) as response:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
+            }
+            async with session.get(url, allow_redirects=True, timeout=5, headers=headers) as response:
                 if response.status != 200:
                     print(f"Invalid image URL (status {response.status}): {url}")
                     return False
@@ -184,14 +195,16 @@ class ImageSearcher:
                     if not any(url.lower().endswith(ext) for ext in image_extensions):
                         print(f"Invalid content type ({content_type}): {url}")
                         return False
+                print(f"Successfully validated URL: {url}")
                 return True
         except Exception as e:
             print(f"Error validating image URL {url}: {str(e)}")
+            # Fallback: check if URL ends with an image extension
             image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
             if any(url.lower().endswith(ext) for ext in image_extensions):
                 return True
             return False
-    
+
     def rank_image_by_relevance(self, image: Dict[str, str], content: str, query: str) -> float:
         score = 0.0
         content_words = set(re.findall(r'\b\w+\b', content.lower()))
@@ -215,7 +228,7 @@ class ImageSearcher:
             if 100000 <= resolution <= 2000000:
                 score += 0.5
         return score
-    
+
     async def rank_images(self, images: List[Dict[str, str]], content: str, query: str) -> List[Dict[str, str]]:
         if not images:
             return []
@@ -267,7 +280,7 @@ class ImageSearcher:
                     print("Max retries exceeded")
                     return None
         return None
-    
+
     async def _search_images_ddgs(self, query: str, num_images: int = 3) -> List[Dict[str, str]]:
         try:
             print("Using DuckDuckGo Search as fallback...")
@@ -314,6 +327,189 @@ class ImageSearcher:
             print(f"DuckDuckGo search error: {e}")
             return []
     
+    async def download_image(self, url: str, max_retries: int = 3) -> bytes:
+        """Asynchronously download image bytes from a URL with improved error handling and retry logic."""
+        retry_count = 0
+        base_wait_time = 1
+        
+        while retry_count <= max_retries:
+            try:
+                timeout = aiohttp.ClientTimeout(total=10)  # 10 second timeout
+                
+                # Create a context that doesn't verify SSL certificates if needed
+                # This isn't ideal for security but helps overcome certificate issues
+                ssl_context = ssl.create_default_context(cafile=certifi.where())
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+                
+                connector = aiohttp.TCPConnector(ssl=ssl_context)
+                
+                async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
+                    headers = {
+                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
+                    }
+                    async with session.get(url, allow_redirects=True, headers=headers) as response:
+                        if response.status != 200:
+                            print(f"Failed to download image, status: {response.status}, URL: {url}")
+                            if retry_count < max_retries:
+                                wait_time = base_wait_time * (2 ** retry_count)
+                                print(f"Retrying download in {wait_time} seconds...")
+                                await asyncio.sleep(wait_time)
+                                retry_count += 1
+                                continue
+                            else:
+                                raise Exception(f"Failed to download image after {max_retries} retries, status: {response.status}")
+                        
+                        # Verify content type
+                        content_type = response.headers.get('Content-Type', '').lower()
+                        if not any(img_type in content_type for img_type in ['image/', 'application/octet-stream']):
+                            print(f"Warning: Unexpected content type: {content_type} for URL: {url}")
+                        
+                        image_data = await response.read()
+                        # Verify we got actual data
+                        if len(image_data) < 100:  # Extremely small for an image, likely an error
+                            print(f"Warning: Downloaded data too small ({len(image_data)} bytes) from URL: {url}")
+                            if retry_count < max_retries:
+                                wait_time = base_wait_time * (2 ** retry_count)
+                                print(f"Retrying download in {wait_time} seconds...")
+                                await asyncio.sleep(wait_time)
+                                retry_count += 1
+                                continue
+                            
+                        print(f"Successfully downloaded {len(image_data)} bytes from {url}")
+                        return image_data
+            except Exception as e:
+                print(f"Error downloading image from {url}: {str(e)}")
+                if retry_count < max_retries:
+                    wait_time = base_wait_time * (2 ** retry_count)
+                    print(f"Retrying download in {wait_time} seconds...")
+                    await asyncio.sleep(wait_time)
+                    retry_count += 1
+                else:
+                    raise Exception(f"Failed to download image after {max_retries} retries: {str(e)}")
+        
+        raise Exception(f"Failed to download image after {max_retries} retries")
+    
+    def upload_image_to_supabase(self, image_bytes: bytes, destination_path: str) -> str:
+        """
+        Synchronously upload the image bytes to Supabase Storage with improved error handling.
+        This function is wrapped using asyncio.to_thread to avoid blocking.
+        """
+        bucket_name = 'images'  # Use your actual bucket name here
+        
+        # Always use image/jpeg content type to comply with RLS
+        content_type = "image/jpeg"
+        print(f"Using content type: {content_type} for upload")
+        
+        try:
+            # Upload the file
+            response = self.supabase.storage.from_(bucket_name).upload(
+                path=destination_path,
+                file=image_bytes,  # Pass bytes directly
+                file_options={
+                    "contentType": content_type
+                }
+            )
+            
+            # Check for various error conditions in the response
+            if isinstance(response, dict) and response.get("error"):
+                error_message = str(response.get("error"))
+                print(f"Supabase upload error: {error_message}")
+                raise Exception(f"Upload failed: {error_message}")
+                
+            # Get the proper public URL from Supabase
+            # Use environment variable for Supabase URL if available
+            supabase_url = os.environ.get("SUPABASE_URL", "https://yqtiuzhedkfacwgormhn.supabase.co")
+            if supabase_url.endswith('/'):
+                supabase_url = supabase_url[:-1]
+                
+            public_url = f"{supabase_url}/storage/v1/object/public/{bucket_name}/{destination_path}"
+            print(f"Successful upload to Supabase storage: {public_url}")
+            return public_url
+            
+        except Exception as e:
+            print(f"Error uploading to Supabase: {str(e)}")
+            # Re-raise the exception to be handled by the caller
+            raise
+    
+    async def download_and_upload_image(self, image_url: str, destination_path: str) -> str:
+        """Combine download and upload to return the Supabase public URL with improved error handling."""
+        try:
+            print(f"Downloading image from: {image_url}")
+            image_bytes = await self.download_image(image_url)
+            print(f"Successfully downloaded {len(image_bytes)} bytes")
+            
+            uploaded_url = await asyncio.to_thread(self.upload_image_to_supabase, image_bytes, destination_path)
+            print(f"Successfully uploaded to: {uploaded_url}")
+            
+            return uploaded_url
+        except Exception as e:
+            print(f"Error in download_and_upload_image: {str(e)}")
+            # Re-raise to be handled by the process_images method
+            raise
+    
+    async def _process_images(self, images: List[Dict[str, str]], num_images: int) -> List[Dict[str, str]]:
+        """
+        For the top ranked images, download and upload each image to Supabase Storage,
+        replacing the original URL with the new public URL.
+        
+        Improved with better error handling and fallback mechanisms.
+        """
+        processed_images = []
+        successful_uploads = 0
+        
+        # Try processing each image, with fallbacks if needed
+        for idx, image in enumerate(images[:num_images], 1):
+            original_url = image['url']
+            # Create a unique destination path for each image
+            # Use jpg extension and public folder to comply with RLS
+            hash_digest = hashlib.md5(original_url.encode()).hexdigest()
+            destination_path = f"public/{hash_digest}_img{idx}.jpg"
+            
+            try:
+                print(f"Processing image {idx}/{num_images}: {original_url[:60]}...")
+                new_url = await self.download_and_upload_image(original_url, destination_path)
+                
+                # Replace with the new URL on success
+                image['url'] = new_url
+                image['original_url'] = original_url  # Store the original URL as reference
+                image['processed'] = True
+                successful_uploads += 1
+                print(f"✅ Image {idx}/{num_images} successfully processed and uploaded to Supabase")
+                
+            except Exception as e:
+                print(f"❌ Failed to process image {idx}/{num_images}: {str(e)}")
+                # Keep the original URL as fallback if upload fails
+                image['original_url'] = original_url  # For reference
+                image['processed'] = False
+                print(f"    Using original URL as fallback: {original_url[:60]}...")
+                
+                # Try with thumbnail URL if available and different from original
+                thumbnail_url = image.get('thumbnailUrl')
+                if thumbnail_url and thumbnail_url != original_url:
+                    try:
+                        print(f"    Attempting with thumbnail URL: {thumbnail_url[:60]}...")
+                        thumb_hash = hashlib.md5(thumbnail_url.encode()).hexdigest()
+                        thumb_path = f"public/{thumb_hash}_thumb{idx}.jpg"
+                        thumb_url = await self.download_and_upload_image(thumbnail_url, thumb_path)
+                        
+                        # Use the thumbnail URL if successful
+                        image['url'] = thumb_url
+                        image['processed'] = True
+                        successful_uploads += 1
+                        print(f"✅ Successfully processed thumbnail for image {idx}")
+                    except Exception as thumb_error:
+                        print(f"❌ Thumbnail fallback also failed: {str(thumb_error)}")
+                        # Keep using the original URL if both attempts fail
+            
+            processed_images.append(image)
+        
+        print(f"Image processing summary: {successful_uploads}/{len(processed_images)} images successfully processed")
+        if successful_uploads == 0 and processed_images:
+            print("⚠️ WARNING: All image processing attempts failed. Check Supabase credentials and bucket permissions.")
+            
+        return processed_images
+
     async def search_images(self, query: str, num_images: int = 3, content: str = None) -> List[Dict[str, str]]:
         content_for_ranking = content or query
         if self.use_llm:
@@ -350,7 +546,7 @@ class ImageSearcher:
                             valid_images = [img for img, is_valid in zip(ddgs_results, validation_results) if is_valid]
                             if valid_images:
                                 ranked_images = await self.rank_images(valid_images, content_for_ranking, optimized_query)
-                                return ranked_images[:num_images]
+                                return await self._process_images(ranked_images, num_images)
                     return []
                 if 'error' in data:
                     print(f"API error: {data['error'].get('message', 'Unknown error')}")
@@ -371,8 +567,7 @@ class ImageSearcher:
                     print(f"After validation: {len(valid_images)} valid images out of {len(images)} total")
                     if valid_images:
                         ranked_images = await self.rank_images(valid_images, content_for_ranking, optimized_query)
-                        print(f"Ranked {len(ranked_images)} images by relevance to content")
-                        return ranked_images[:num_images]
+                        return await self._process_images(ranked_images, num_images)
                     else:
                         print("Warning: No valid images found after validation")
                         return []

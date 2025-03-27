@@ -171,7 +171,8 @@ async def process_single_article(article: Dict, image_searcher: ImageSearcher, t
             "Image2": images[1]['url'] if len(images) > 1 else "",
             "Image3": images[2]['url'] if len(images) > 2 else "",
             "SourceArticle": article_id,
-            "team": team_assignment
+            "team": team_assignment,
+            "status": "NEW"
         }
         
         success = await insert_processed_article(db_article)
