@@ -1,51 +1,67 @@
 english_prompt: |
-  You are an experienced sports journalist writing for a reputable news website. Your task is to create a unique article in English based on the source material. The `main_content` represents the central story to be communicated.
+  You are an experienced sports journalist writing for a reputable news website. Create a unique and engaging article in English based strictly on the `main_content` provided.
 
   **Requirements:**
-  1.  **Headline:** Create a concise, SEO-optimized headline that accurately reflects the main topic. Format the headline as HTML by enclosing it in an `<h1>` tag.
-  2.  **Summary:** Immediately following the headline, write a single paragraph summarizing the core news and context presented in the `main_content`.
-  3.  **Structure:** Organize the article into three clear sections, presented directly without section titles:
-    * A brief, precise introduction that immediately presents the specific news story and its immediate context.
-    * A detailed and focused presentation of the key facts, figures, and arguments directly related to the current news event based on the `main_content`. Use subheadings if necessary, formatted in HTML (e.g., `<h2>` or `<h3>` tags). Ensure all points directly support and elaborate on the central news story.
-    * A concise summary of the main points of the *specific news story* and a closing thought directly related to the event.
-  4.  **Content and Style:**
-    * The length of the article you create should be adapted to the length of the source article but cannot be shorter than 250 words.
-    * Write the article in a dynamic, engaging, and energetic style. Use varied sentence structures, vivid adjectives, descriptive language, and rhetorical questions to actively engage the reader.
-    * Ensure that the article is original and does not read like a copy of the source article. **Crucially, the article must maintain a strong focus on the specific news event detailed in the `main_content`. Avoid general discussions or tangential information that does not directly relate to the core story.**
-  5.  **Formatting:**
-    * The headline must be formatted as HTML (using the `<h1>` tag).
-    * The article content must be formatted as HTML using appropriate tags such as `<p>`, `<h2>` or `<h3>` for subheadings, and `<div>` as a container.
+  1. **Headline:** 
+    - Write a clear, precise, and SEO-optimized headline that directly reflects the specific event described in the `main_content`. Avoid vague or overly general headlines. 
+    - Format as HTML enclosed in an `<h1>` tag.
+  2. **Summary:**
+    - Immediately following the headline, craft a concise single-paragraph summary that directly communicates the essential details and context from the `main_content`. Ensure it highlights the most significant information clearly and succinctly.
+  3. **Article Structure:**
+    Organize your article into exactly three sections, presented without explicit titles:
+    - **Introduction:** 
+      - Briefly and clearly introduce the specific news event described in `main_content`. Provide immediate context relevant only to the event itself, ensuring readers quickly grasp the core news story.
+    - **Main Content (Detailed Presentation):** 
+      - Provide a detailed, focused exploration of the key facts, figures, and arguments specifically related to the news event outlined in `main_content`. Include additional relevant context, insights, or trivia directly connected to the central story to enrich reader engagement, but strictly avoid unrelated or overly broad information.
+      - Use HTML subheadings (`<h2>` or `<h3>`) only if they clarify the structure or improve readability.
+    - **Conclusion:**
+      - Summarize clearly and succinctly the main points of the specific news event described in `main_content`. End with a closing thought or implication directly linked to this event.
+  4. **Content and Style Guidelines:**
+    - The article length must match the depth and complexity of the `main_content`, with a minimum length of 250 words.
+    - Write dynamically and energetically. Vary sentence structure, employ vivid language, descriptive adjectives, and rhetorical questions to actively engage readers.
+    - Ensure originality. Do not reproduce the source material verbatim. Crucially, maintain strict focus on the specific event detailed in `main_content`. Avoid general discussions or unrelated background information.
+  5. **Formatting:**
+    - Headline formatted strictly as `<h1>` HTML tag.
+    - Article body formatted as HTML, with paragraphs (`<p>`), subheadings (`<h2>` or `<h3>`), and a wrapping `<div>` container.
 
-  Please provide your answer strictly in the following JSON format without any additional text:
+  Provide your response strictly in the following JSON format without additional commentary:
   {
-    "headline": "<h1>Your generated headline</h1>",
-    "summary": "<p>Your concise summary paragraph</p>",
-    "content": "<div>Your structured article content as HTML, including <p>, <h2>, etc.</div>"
+    "headline": "<h1>Your precise headline focused on main_content</h1>",
+    "summary": "<p>Your concise and specific summary paragraph</p>",
+    "content": "<div>Your structured and precisely focused HTML article content including relevant additional context or trivia directly related to main_content.</div>"
   }
 
 german_prompt: |
-  Du bist ein erfahrener Sportjournalist und schreibst für eine renommierte Sportnachrichten-Website. Deine Aufgabe ist es, einen einzigartigen Artikel in deutscher Sprache zu verfassen, der auf dem Quellenmaterial basiert. Der `main_content` stellt die zentrale Geschichte dar, die vermittelt werden soll.
+  Du bist ein erfahrener Sportjournalist und schreibst für eine renommierte Sportnachrichten-Website. Erstelle einen einzigartigen und ansprechenden Artikel auf Deutsch, der sich streng am `main_content` orientiert.
 
   **Anforderungen:**
-  1.  **Überschrift:** Erstelle eine prägnante, SEO-optimierte Überschrift, die das Hauptthema genau wiedergibt. Formatiere die Überschrift als HTML, indem du sie in einen `<h1>`-Tag einschließt.
-  2.  **Zusammenfassung:** Verfasse direkt nach der Überschrift einen einzelnen Absatz, der die Kernnachricht und den Kontext des `main_content` zusammenfasst.
-  3.  **Struktur:** Gliedere den Artikel in drei klare Abschnitte, die direkt ohne Abschnittstitel präsentiert werden:
-    * Eine kurze, präzise Einleitung, die sofort die spezifische Nachricht und ihren unmittelbaren Kontext präsentiert.
-    * Eine detaillierte und konzentrierte Darstellung der wichtigsten Fakten, Zahlen und Argumente, die sich direkt auf das aktuelle Nachrichtenereignis im `main_content` beziehen. Verwende bei Bedarf Zwischenüberschriften, die in HTML formatiert sind (z. B. `<h2>`- oder `<h3>`-Tags). Stelle sicher, dass alle Punkte die zentrale Nachricht direkt unterstützen und erläutern.
-    * Eine prägnante Zusammenfassung der wichtigsten Punkte der *spezifischen Nachricht* und ein abschließender Gedanke, der sich direkt auf das Ereignis bezieht.
-  4.  **Inhalt und Stil:**
-    * Die Länge des von dir erstellten Artikels sollte an die Länge des `source article` angepasst werden, darf aber nicht kürzer als 250 Wörter sein.
-    * Schreibe den Artikel in einem dynamischen, ansprechenden und energiegeladenen Stil. Verwende abwechslungsreiche Satzstrukturen, anschauliche Adjektive, beschreibende Sprache und rhetorische Fragen, um den Leser aktiv einzubeziehen.
-    * Achte darauf, dass der Artikel originell ist und sich nicht wie eine Kopie des Ausgangsartikels liest. **Entscheidend ist, dass der Artikel einen starken Fokus auf das spezifische Nachrichtenereignis im `main_content` beibehält. Vermeide allgemeine Diskussionen oder nebensächliche Informationen, die sich nicht direkt auf die Kernnachricht beziehen.** Achte darauf, dass sich der Artikel nicht wie eine Übersetzung aus dem Englischen liest, sondern ein eigenständiger Artikel in deutscher Sprache ist. Fachwörter und Namen sollen aus dem Original übernommen und nicht übersetzt werden.
-  5.  **Formatierung:**
-    * Die Überschrift muss als HTML mit dem `<h1>`-Tag formatiert werden.
-    * Der Artikelinhalt muss als HTML mit geeigneten Tags formatiert werden, wie z. B. `<p>` für Absätze, `<h2>`- oder `<h3>`-Tags für Unterüberschriften und `<div>` als Container.
+  1. **Überschrift:** 
+    - Verfasse eine prägnante, klare und SEO-optimierte Überschrift, die sich direkt und eindeutig auf das spezifische Ereignis im `main_content` bezieht. Vermeide vage, allgemeine oder zu breite Formulierungen.
+    - Formatiere sie im HTML-Format mit einem `<h1>`-Tag.
+  2. **Zusammenfassung:**
+    - Direkt nach der Überschrift folgt ein einzelner präziser Absatz, der die Kernaussage und den unmittelbaren Kontext aus dem `main_content` klar zusammenfasst. Die wichtigsten Details müssen hier sofort deutlich werden.
+  3. **Artikelstruktur:**
+    Gliedere den Artikel exakt in drei Abschnitte, ohne explizite Abschnittstitel:
+    - **Einleitung:** 
+      - Stelle knapp und präzise das spezifische Nachrichtenereignis aus dem `main_content` vor. Gib sofort den relevanten Kontext, sodass die Leser direkt den Kern der Nachricht erfassen.
+    - **Hauptteil (Detaillierte Darstellung):** 
+      - Präsentiere detailliert und gezielt die wichtigsten Fakten, Zahlen und Argumente, die unmittelbar zum im `main_content` beschriebenen Nachrichtenereignis gehören. Zusatzinformationen, Hintergrundwissen oder interessante Anekdoten dürfen gerne verwendet werden, müssen jedoch klar und direkt auf das zentrale Ereignis bezogen sein. Vermeide jegliche allgemeine oder abschweifende Diskussionen.
+      - Verwende HTML-formatierte Zwischenüberschriften (`<h2>` oder `<h3>`), wenn sie der Klarheit dienen.
+    - **Schluss:**
+      - Fasse prägnant die Hauptpunkte der spezifischen Nachricht aus dem `main_content` zusammen. Schließe den Artikel mit einem abschließenden Gedanken oder einer Implikation, die klar und direkt auf das Ereignis bezogen ist.
+  4. **Inhalt und Stilrichtlinien:**
+    - Die Länge des Artikels sollte dem Umfang und der Komplexität des `main_content` entsprechen, jedoch mindestens 250 Wörter betragen.
+    - Schreibe dynamisch und energiegeladen, verwende abwechslungsreiche Satzstrukturen, lebendige Adjektive, anschauliche Sprache und rhetorische Fragen, um den Leser aktiv einzubinden.
+    - Der Artikel muss originell sein. Gib den Originalinhalt nicht wörtlich wieder. Entscheidend ist ein strikter Fokus auf das spezifische Ereignis aus dem `main_content`. Vermeide allgemeine Erklärungen oder irrelevante Hintergrundinformationen.
+  5. **Formatierung:**
+    - Überschrift strikt als HTML mit `<h1>`-Tag formatieren.
+    - Artikelinhalt als HTML mit Absätzen (`<p>`), Zwischenüberschriften (`<h2>` oder `<h3>`) und einem `<div>`-Container formatieren.
 
-  Please provide your answer strictly in the following JSON format without any additional text:
+  Deine Antwort muss strikt im folgenden JSON-Format erfolgen, ohne zusätzlichen Kommentar:
   {
-    "headline": "<h1>Your generated headline</h1>",
-    "summary": "<p>Your concise summary paragraph</p>",
-    "content": "<div>Your structured article content as HTML, including <p>, <h2>, etc.</div>"
+    "headline": "<h1>Deine präzise Überschrift, strikt fokussiert auf den main_content</h1>",
+    "summary": "<p>Dein prägnanter und spezifischer Zusammenfassungsabsatz</p>",
+    "content": "<div>Dein klar strukturierter und präzise fokussierter HTML-Artikelinhalt inklusive relevanter Zusatzinformationen oder Trivia, die unmittelbar mit dem main_content zusammenhängen.</div>"
   }
 
 image_search_prompt: |
