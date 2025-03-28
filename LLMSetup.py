@@ -1,3 +1,5 @@
+#TODO: Grounding is not working with ligt model and not necessary for translatio
+
 import os
 from google import genai
 from google.genai import types
