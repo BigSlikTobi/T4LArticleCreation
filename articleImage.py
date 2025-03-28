@@ -514,23 +514,8 @@ class ImageSearcher:
                 image['processed'] = False
                 print(f"    Using original URL as fallback: {original_url[:60]}...")
                 
-                # Try with thumbnail URL if available and different from original
-                thumbnail_url = image.get('thumbnailUrl')
-                if thumbnail_url and thumbnail_url != original_url:
-                    try:
-                        print(f"    Attempting with thumbnail URL: {thumbnail_url[:60]}...")
-                        thumb_hash = hashlib.md5(thumbnail_url.encode()).hexdigest()
-                        thumb_path = f"public/{thumb_hash}_thumb{idx}.jpg"
-                        thumb_url = await self.download_and_upload_image(thumbnail_url, thumb_path)
-                        
-                        # Use the thumbnail URL if successful
-                        image['url'] = thumb_url
-                        image['processed'] = True
-                        successful_uploads += 1
-                        print(f"✅ Successfully processed thumbnail for image {idx}")
-                    except Exception as thumb_error:
-                        print(f"❌ Thumbnail fallback also failed: {str(thumb_error)}")
-                        # Keep using the original URL if both attempts fail
+                # We strictly avoid using thumbnails as requested
+                print("    Not attempting with thumbnail URL as per requirements")
             
             processed_images.append(image)
         
