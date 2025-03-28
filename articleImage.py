@@ -177,9 +177,12 @@ class ImageSearcher:
     
     async def validate_image_url(self, session: aiohttp.ClientSession, image_data: Dict[str, str]) -> bool:
         url = image_data['url']
-        known_image_hosts = ['gettyimages.com', 'shutterstock.com', 'istockphoto.com']
-        if any(host in url.lower() for host in known_image_hosts):
-            return True
+        # Add blacklist check
+        blacklisted_domains = ['lookaside.instagram.com', 'gettyimages.com', 'shutterstock.com', 'istockphoto.com', 'tiktok.com/']
+        if any(domain in url.lower() for domain in blacklisted_domains):
+            print(f"Blacklisted image URL: {url}")
+            return False
+            
         try:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
@@ -211,22 +214,38 @@ class ImageSearcher:
         query_words = set(query.lower().split())
         image_title = image['title'].lower()
         title_words = set(re.findall(r'\b\w+\b', image_title))
+        
+        # Content and query matching
         content_match_count = len(title_words.intersection(content_words))
         score += content_match_count * 1.0
         query_match_count = len(title_words.intersection(query_words))
         score += query_match_count * 2.0
+        
         for term in query_words:
             if term.lower() in image_title:
                 score += 0.5
+        
+        # Resolution scoring
         width = image.get('width', 0)
         height = image.get('height', 0)
         if width > 0 and height > 0:
+            # Check if image meets minimum resolution requirements
+            meets_min_width = width >= 1200
+            meets_min_height = height >= 400
+            
+            if meets_min_width and meets_min_height:
+                score += 3.0  # High bonus for meeting minimum requirements
+            else:
+                # Still give some points for images close to the requirements
+                width_ratio = min(width / 1200.0, 1.0)
+                height_ratio = min(height / 400.0, 1.0)
+                score += (width_ratio + height_ratio) * 0.5
+            
+            # Check aspect ratio
             aspect_ratio = width / max(height, 1)
-            if 0.5 <= aspect_ratio <= 2.0:
+            if 1.5 <= aspect_ratio <= 4.0:  # Preferred range for news article images
                 score += 0.5
-            resolution = width * height
-            if 100000 <= resolution <= 2000000:
-                score += 0.5
+        
         return score
 
     async def rank_images(self, images: List[Dict[str, str]], content: str, query: str) -> List[Dict[str, str]]:
@@ -287,6 +306,7 @@ class ImageSearcher:
             filtered_results = []
             all_results = []
             cutoff_date = datetime.now() - timedelta(days=14)
+            
             with DDGS() as ddgs:
                 page = 1
                 max_pages = 5
@@ -299,30 +319,40 @@ class ImageSearcher:
                     current_page_results = results[(page-1)*10 : page*10]
                     if not current_page_results:
                         break
+                    
                     for img in current_page_results:
                         try:
                             if 'width' in img and 'height' in img and img['height'] > 0:
-                                aspect = img['width'] / img['height']
-                                if abs(aspect - (16/9)) > 0.1:
-                                    continue
-                            else:
-                                continue
-                            filtered_results.append(img)
+                                # Check for minimum resolution requirements
+                                if img['width'] >= 1200 and img['height'] >= 400:
+                                    filtered_results.append(img)
+                                elif len(filtered_results) < num_images:
+                                    # Only add lower resolution images if we haven't found enough high-res ones
+                                    aspect = img['width'] / img['height']
+                                    if 1.5 <= aspect <= 4.0:  # Reasonable aspect ratio for news images
+                                        filtered_results.append(img)
                         except Exception as e:
                             continue
+                    
                     if len(filtered_results) >= num_images:
                         break
                     page += 1
-            if len(filtered_results) < num_images:
-                filtered_results.extend([r for r in all_results if r not in filtered_results])
-                filtered_results = filtered_results[:num_images]
-            return [{
-                'url': result.get('image', ''),
-                'title': result.get('title', ''),
-                'thumbnailUrl': result.get('thumbnail', ''),
-                'width': result.get('width', 0),
-                'height': result.get('height', 0)
-            } for result in filtered_results[:num_images]]
+                
+                # If we still don't have enough images, use the best ones we found
+                if len(filtered_results) < num_images:
+                    remaining_needed = num_images - len(filtered_results)
+                    # Sort remaining images by resolution
+                    remaining_images = [r for r in all_results if r not in filtered_results]
+                    remaining_images.sort(key=lambda x: x.get('width', 0) * x.get('height', 0), reverse=True)
+                    filtered_results.extend(remaining_images[:remaining_needed])
+                
+                return [{
+                    'url': result.get('image', ''),
+                    'title': result.get('title', ''),
+                    'thumbnailUrl': result.get('thumbnail', ''),
+                    'width': result.get('width', 0),
+                    'height': result.get('height', 0)
+                } for result in filtered_results[:num_images]]
         except Exception as e:
             print(f"DuckDuckGo search error: {e}")
             return []
@@ -527,6 +557,8 @@ class ImageSearcher:
             'searchType': 'image',
             'num': min(num_images * 2, 10),
             'safe': 'active',
+            'imgSize': 'huge',  # Prefer large images
+            'rights': 'cc_publicdomain,cc_attribute,cc_sharealike',  # Ensure proper licensing
         }
         
         ssl_context = ssl.create_default_context(cafile=certifi.where())
@@ -536,21 +568,27 @@ class ImageSearcher:
             try:
                 data = await self._api_request_with_backoff(session, params)
                 if not data:
-                    print("API request failed or rate-limited. No fallback available.")
-                    if self.ddgs_enabled:
-                        print("Google API request failed. Trying DuckDuckGo fallback...")
-                        ddgs_results = await self._search_images_ddgs(optimized_query, num_images)
-                        if ddgs_results:
-                            validation_tasks = [self.validate_image_url(session, img) for img in ddgs_results]
-                            validation_results = await asyncio.gather(*validation_tasks)
-                            valid_images = [img for img, is_valid in zip(ddgs_results, validation_results) if is_valid]
-                            if valid_images:
-                                ranked_images = await self.rank_images(valid_images, content_for_ranking, optimized_query)
-                                return await self._process_images(ranked_images, num_images)
+                    print("API request failed or rate-limited. Trying without size restriction...")
+                    # Retry without size restriction
+                    params.pop('imgSize')
+                    data = await self._api_request_with_backoff(session, params)
+                    
+                if not data and self.ddgs_enabled:
+                    print("Google API request failed. Trying DuckDuckGo fallback...")
+                    ddgs_results = await self._search_images_ddgs(optimized_query, num_images)
+                    if ddgs_results:
+                        validation_tasks = [self.validate_image_url(session, img) for img in ddgs_results]
+                        validation_results = await asyncio.gather(*validation_tasks)
+                        valid_images = [img for img, is_valid in zip(ddgs_results, validation_results) if is_valid]
+                        if valid_images:
+                            ranked_images = await self.rank_images(valid_images, content_for_ranking, optimized_query)
+                            return await self._process_images(ranked_images, num_images)
                     return []
+
                 if 'error' in data:
                     print(f"API error: {data['error'].get('message', 'Unknown error')}")
                     return []
+
                 if 'items' in data:
                     images = [{
                         'url': item['link'],
@@ -559,11 +597,13 @@ class ImageSearcher:
                         'width': item.get('image', {}).get('width', 0),
                         'height': item.get('image', {}).get('height', 0)
                     } for item in data['items']]
+                    
                     print(f"Found {len(images)} images from API")
                     print("Validating image URLs...")
                     validation_tasks = [self.validate_image_url(session, img) for img in images]
                     validation_results = await asyncio.gather(*validation_tasks)
                     valid_images = [img for img, is_valid in zip(images, validation_results) if is_valid]
+                    
                     print(f"After validation: {len(valid_images)} valid images out of {len(images)} total")
                     if valid_images:
                         ranked_images = await self.rank_images(valid_images, content_for_ranking, optimized_query)
@@ -577,6 +617,7 @@ class ImageSearcher:
                     print(f"No items found in response. Error: {error_msg}")
                     print(f"Search information: {queries_info}")
                     return []
+                    
             except Exception as e:
                 print(f"Error searching for images: {str(e)}")
                 import traceback
