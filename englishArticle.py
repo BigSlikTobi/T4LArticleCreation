@@ -49,7 +49,7 @@ Please provide your answer strictly in the following JSON format without any add
             model=model_info["model_name"],
             contents=prompt,
             config=types.GenerateContentConfig(
-                temperature=0.7,
+                temperature=0.4,
                 max_output_tokens=8192,
                 tools=model_info["tools"]
             )
