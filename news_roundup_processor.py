@@ -314,14 +314,19 @@ async def generate_headline(topic_info: str) -> str:
     Generate a headline for a topic using the content model.
     Returns a concise, SEO-optimized headline.
     """
-    prompt = textwrap.dedent(f"""\
-        Analyze the following news text and generate a concise, compelling, and SEO-optimized headline.
-        The headline should accurately reflect the main topic of the text.
-        It must be no longer than a short sentence (ideally under 70 characters).
-        Do not include quotation marks around the headline in your response.
-        
-        News text:
-        {topic_info}
+    prompt = textwrap.dedent(f"""
+    **Task:** Generate a single, concise, SEO-optimized headline for the following news text.
+
+    **Constraints:**
+    - Maximum length: 70 characters.
+    - Accurately reflect the main topic.
+    - Factual and compelling.
+
+    **Output Requirement:**
+    Respond ONLY with the headline text itself. Do NOT include any other words, explanations, introductions, formatting (like quotes), or conversational phrases. Your entire response must be the headline.
+
+    **News Text:**
+    {topic_info}
     """)
     
     try:
