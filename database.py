@@ -94,7 +94,7 @@ async def fetch_unprocessed_articles() -> List[Dict]:
                 if article.get('source') in primary_sources 
                 and article.get('contentType') == 'news_article'
                 and not article.get('isArticleCreated', False)
-                and article.get('duplication_of') is None  # Additional Python-side check
+                and (article.get('duplication_of') is None or article.get('duplication_of') == '')  # Additional Python-side check
             ]
             print(f"Successfully fetched {len(filtered_articles)} unprocessed articles")
             return filtered_articles
