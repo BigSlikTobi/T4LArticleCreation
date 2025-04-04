@@ -53,6 +53,7 @@ async def fetch_unprocessed_articles() -> List[Dict]:
     - From primary sources (isPrimarySource = true in NewsSource table)
     - Have contentType 'news_article'
     - isArticleCreated is false or null
+    - duplication_of is null or empty
     
     Returns:
         List[Dict]: List of articles meeting the criteria
@@ -79,7 +80,8 @@ async def fetch_unprocessed_articles() -> List[Dict]:
             "select": "*",
             "source": f"in.{source_list}",
             "contentType": "eq.news_article",
-            "isArticleCreated": "eq.false"
+            "isArticleCreated": "eq.false",
+            "duplication_of": "is.null"  # Add filter for duplication_of being null
         }
         
         response = requests.get(url, headers=headers, params=params)
@@ -92,6 +94,7 @@ async def fetch_unprocessed_articles() -> List[Dict]:
                 if article.get('source') in primary_sources 
                 and article.get('contentType') == 'news_article'
                 and not article.get('isArticleCreated', False)
+                and article.get('duplication_of') is None  # Additional Python-side check
             ]
             print(f"Successfully fetched {len(filtered_articles)} unprocessed articles")
             return filtered_articles
