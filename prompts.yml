@@ -3,31 +3,33 @@ english_prompt: |
 
   **Requirements:**
 
-  1. **Headline:**  
-    - Write a clear, precise, SEO-optimized headline that directly reflects the specific event described in the `main_content`. Avoid vague, overly general, or repetitive headline structures (e.g., "Team X beats Team Y").  
-    - Start the headline uniquely by emphasizing an outstanding player, a dramatic moment, an unusual statistic, or an emotional reaction described in the `main_content`.  
+  1. **Headline:**
+    - Write a clear, precise, SEO-optimized headline that directly reflects the specific event described in the `main_content`. Avoid vague, overly general, or repetitive headline structures (e.g., "Team X beats Team Y").
+    - Start the headline uniquely by emphasizing an outstanding player, a dramatic moment, an unusual statistic, or an emotional reaction described in the `main_content`.
     - Format as HTML enclosed in an `<h1>` tag.
 
-  2. **Summary:**  
+  2. **Summary:**
     - Immediately following the headline, craft a concise single-paragraph summary that directly communicates the essential details and context from the `main_content`. Clearly highlight the most significant information.
+    - Format as HTML enclosed in a `<p>` tag. # Added clarification
 
-  3. **Article Structure:**  
+  3. **Article Structure:**
     Organize your article into exactly three sections, presented without explicit titles:
-    - **Introduction:**  
+    - **Introduction:**
       - Briefly introduce the specific news event described in `main_content`. Provide immediate context relevant only to the event itself, enabling readers to quickly understand the core news.
-    - **Main Content (Detailed Presentation):**  
-      - Provide a detailed, focused exploration of key facts, figures, and arguments specifically related to the news event outlined in `main_content`. Include additional relevant context, insights, or trivia directly connected to enrich reader engagement, strictly avoiding unrelated information.  
+    - **Main Content (Detailed Presentation):**
+      - Provide a detailed, focused exploration of key facts, figures, and arguments specifically related to the news event outlined in `main_content`. Include additional relevant context, insights, or trivia directly connected to enrich reader engagement, strictly avoiding unrelated information.
       - Use HTML subheadings (`<h2>` or `<h3>`) only if necessary for clarity or readability.
-    - **Conclusion:**  
+    - **Conclusion:**
       - Clearly summarize the main points of the specific news event described in `main_content`. End with a closing thought or implication directly linked to this event.
 
-  4. **Content and Style Guidelines:**  
-    - Match article length to the depth and complexity of the `main_content`, minimum 150 words.  
-    - Write dynamically and energetically, using varied sentence structures, vivid descriptions, adjectives, and rhetorical questions to engage readers.  
+  4. **Content and Style Guidelines:**
+    - Match article length to the depth and complexity of the `main_content`, minimum 150 words.
+    - Write dynamically and energetically, using varied sentence structures, vivid descriptions, adjectives, and rhetorical questions to engage readers.
     - Ensure originality. Maintain strict focus on the specific event detailed in `main_content`. Avoid general discussions or unrelated background information.
 
-  5. **Formatting:**  
-    - Headline formatted strictly as `<h1>` HTML tag.  
+  5. **Formatting:**
+    - Headline formatted strictly as `<h1>` HTML tag.
+    - Summary formatted strictly as `<p>` HTML tag. # Added rule
     - Article body formatted as HTML, with paragraphs (`<p>`), subheadings (`<h2>` or `<h3>`), and wrapped within a `<div>` container.
 
   **Provide your response strictly in the following JSON format without additional commentary:**
@@ -42,33 +44,35 @@ german_prompt: |
 
   **Anforderungen:**
 
-  1. **Überschrift:**  
-    - Verfasse eine prägnante, klare und SEO-optimierte Überschrift, die eindeutig auf das spezifische Ereignis im `main_content` fokussiert ist.  
-    - Vermeide Standardphrasen und wiederholende Überschriften wie „Team X gewinnt gegen Team Y“, „Sieg für...“ oder „Niederlage für...“.  
-    - Starte die Überschrift kreativ, etwa mit einer herausragenden Spielerleistung, einem dramatischen Moment, einer überraschenden Statistik oder einer emotionalen Reaktion aus dem `main_content`.  
+  1. **Überschrift:**
+    - Verfasse eine prägnante, klare und SEO-optimierte Überschrift, die eindeutig auf das spezifische Ereignis im `main_content` fokussiert ist.
+    - Vermeide Standardphrasen und wiederholende Überschriften wie „Team X gewinnt gegen Team Y“, „Sieg für...“ oder „Niederlage für...“.
+    - Starte die Überschrift kreativ, etwa mit einer herausragenden Spielerleistung, einem dramatischen Moment, einer überraschenden Statistik oder einer emotionalen Reaktion aus dem `main_content`.
     - Formatiere sie im HTML-Format mit einem `<h1>`-Tag.
-  
-  2. **Zusammenfassung:**  
-    - Direkt nach der Überschrift folgt ein einzelner präziser Absatz, der die Kernaussage und den unmittelbaren Kontext aus dem `main_content` klar zusammenfasst.
 
-  3. **Artikelstruktur:**  
+  2. **Zusammenfassung:**
+    - Direkt nach der Überschrift folgt ein einzelner präziser Absatz, der die Kernaussage und den unmittelbaren Kontext aus dem `main_content` klar zusammenfasst.
+    - Formatiere sie im HTML-Format mit einem `<p>`-Tag. # Added clarification
+
+  3. **Artikelstruktur:**
     Gliedere den Artikel exakt in drei Abschnitte, ohne explizite Abschnittstitel:
 
-    - **Einleitung:**  
+    - **Einleitung:**
       - Stelle präzise und kurz das spezifische Nachrichtenereignis aus dem `main_content` vor. Gib relevanten Kontext, sodass die Leser sofort die Kernnachricht erfassen.
-    - **Hauptteil (Detaillierte Darstellung):**  
-      - Präsentiere gezielt die wichtigsten Fakten, Zahlen und Argumente unmittelbar zum Ereignis im `main_content`. Zusatzinformationen, Hintergrundwissen oder spannende Anekdoten sind willkommen, müssen jedoch klar und direkt mit dem zentralen Ereignis zusammenhängen.  
+    - **Hauptteil (Detaillierte Darstellung):**
+      - Präsentiere gezielt die wichtigsten Fakten, Zahlen und Argumente unmittelbar zum Ereignis im `main_content`. Zusatzinformationen, Hintergrundwissen oder spannende Anekdoten sind willkommen, müssen jedoch klar und direkt mit dem zentralen Ereignis zusammenhängen.
       - Verwende HTML-formatierte Zwischenüberschriften (`<h2>` oder `<h3>`), wenn sinnvoll.
-    - **Schluss:**  
+    - **Schluss:**
       - Fasse prägnant die Hauptpunkte der spezifischen Nachricht aus dem `main_content` zusammen und schließe mit einem abschließenden Gedanken oder einer Implikation, die klar und direkt auf das Ereignis bezogen ist.
 
-  4. **Inhalt und Stilrichtlinien:**  
-    - Artikel sollte zur Tiefe und Komplexität des `main_content` passen, mindestens 250 Wörter.  
-    - Schreibe dynamisch, energiegeladen, mit abwechslungsreichen Satzstrukturen, lebendigen Adjektiven und rhetorischen Fragen, um den Leser einzubeziehen.  
+  4. **Inhalt und Stilrichtlinien:**
+    - Artikel sollte zur Tiefe und Komplexität des `main_content` passen, mindestens 250 Wörter.
+    - Schreibe dynamisch, energiegeladen, mit abwechslungsreichen Satzstrukturen, lebendigen Adjektiven und rhetorischen Fragen, um den Leser einzubeziehen.
     - Der Artikel muss originell sein. Behalte strikt den Fokus auf das spezifische Ereignis. Vermeide allgemeine oder irrelevante Informationen.
 
-  5. **Formatierung:**  
-    - Überschrift strikt als HTML mit `<h1>`-Tag.  
+  5. **Formatierung:**
+    - Überschrift strikt als HTML mit `<h1>`-Tag.
+    - Zusammenfassung strikt als HTML mit `<p>`-Tag. # Added rule
     - Artikelinhalt als HTML mit Absätzen (`<p>`), Zwischenüberschriften (`<h2>` oder `<h3>`) innerhalb eines `<div>`-Containers.
 
   **Antworte strikt im folgenden JSON-Format ohne zusätzlichen Kommentar:**
@@ -80,17 +84,17 @@ german_prompt: |
 
 image_search_prompt: |
   Your task is to create the perfect image search query based on the article text below.
-  
+
   Guidelines:
   - Create a concise query (5-8 key terms) that would find a relevant image for this article
   - Focus on the most visually distinctive elements in the article
   - Include proper names, specific objects, and unique identifiers
   - Avoid generic terms, stop words, or abstract concepts
   - Format: Create a search query that would be ideal for Google Image Search
-  
+
   Article text:
   {article_text}
-  
+
   RESPONSE FORMAT:
   [Search Query]: <your optimized search query>
 
@@ -100,14 +104,14 @@ team_classification: |
   Below you'll find an article's headline and content. Analyze them carefully to identify the main sports team being discussed.
 
   Article Headline: {headline}
-  
+
   Article Content: {content}
 
   Instructions:
   1. Analyze the article to determine which specific sports team is the primary focus
   2. Calculate a confidence score between 0.0 and 1.0 (where 1.0 is absolute certainty)
   3. Format your response as ONLY a valid JSON object with exactly these two fields: "team_name" and "confidence_score"
-  
+
   Format your response EXACTLY like this, with no additional text, explanation, or markdown:
   {"team_name": "Full Team Name", "confidence_score": 0.XX}
 
@@ -121,19 +125,19 @@ team_classification: |
 
 news_roundup_topics: |
   You are a sports news analyst. The following text contains a round-up of multiple sports news topics.
-  
-  ### Instructions:  
-      Analyze the text and extract each distinct topic. For each topic:  
-      1. **Identify** where a new topic starts and ends.  
-      2. **Provide** a **concise yet comprehensive** summary in **no more than 70 words**.  
-      ### Requirements:  
-      - Be **specific and factual**—name the **exact** teams, players, events, and outcomes if available.  
-      - Avoid vague phrasing like *"a team won a game"*—instead, specify *"The Kansas City Chiefs defeated the San Francisco 49ers 31-20 in Super Bowl LIV."*  
-      - Ensure the summary is **self-contained**, covering the most critical facts and implications.  
-      - **Do not** include any personal opinions or subjective language.    
-      
+
+  ### Instructions:
+      Analyze the text and extract each distinct topic. For each topic:
+      1. **Identify** where a new topic starts and ends.
+      2. **Provide** a **concise yet comprehensive** summary in **no more than 70 words**.
+      ### Requirements:
+      - Be **specific and factual**—name the **exact** teams, players, events, and outcomes if available.
+      - Avoid vague phrasing like *"a team won a game"*—instead, specify *"The Kansas City Chiefs defeated the San Francisco 49ers 31-20 in Super Bowl LIV."*
+      - Ensure the summary is **self-contained**, covering the most critical facts and implications.
+      - **Do not** include any personal opinions or subjective language.
+
   Return your analysis ONLY as a JSON array where each object represents a topic:
-      
+
   [
     {
       "information": "One paragraph summary of topic 1 (max 70 words)"
@@ -142,18 +146,88 @@ news_roundup_topics: |
       "information": "One paragraph summary of topic 2 (max 70 words)"
     }
   ]
-  
+
   Here's the text to analyze:
   {content}
 
 news_roundup_translation: |
-  Translate the following English sports news paragraph to German. 
+  Translate the following English sports news paragraph to German.
   Maintain the same level of detail and professional sports journalism style.
   Make sure the translation is natural and fluent German, not a literal word-for-word translation.
-  IMPORTANT: 
+  IMPORTANT:
   1. Respond ONLY with the German translation, no explanations or other text
   2. The translation must not exceed 70 words
   3. Keep the same key information as the English text
-  
+
   English paragraph:
   {info}
+
+# --- NEW PROMPTS FOR CLUSTER PIPELINE ---
+
+source_translation_prompt: |
+  Translate the following English source article content accurately into German.
+  Maintain a neutral and informative tone suitable for news reporting.
+  Focus on conveying the original meaning and details faithfully.
+
+  IMPORTANT: Respond ONLY with the German translation of the text below, with no additional explanations, greetings, or markdown formatting.
+
+  English Content:
+  {english_content}
+
+cluster_synthesis_english_prompt: |
+  You are an expert news editor specializing in synthesizing information from multiple related articles into a single, comprehensive, and engaging news story. You will be given content from several source articles that have been clustered together based on a common topic or event.
+
+  **Task:** Create a *single*, new, and original English article that accurately synthesizes the key information, developments, and context presented across *all* the provided source articles.
+
+  **Input:** The content below consists of multiple source articles discussing the same core topic, separated by '--- ARTICLE SEPARATOR ---'.
+
+  **Source Articles Content:**
+  {source_articles_content}
+  --- END OF SOURCE ARTICLES ---
+
+  **Requirements:**
+
+  1.  **Identify Core Theme:** Determine the central theme, event, or subject connecting all source articles.
+  2.  **Synthesize Information:** Combine facts, quotes, figures, and perspectives from the different sources into a unified narrative. Do *not* simply concatenate the articles. Identify the most important information and new developments. If there are minor discrepancies, prioritize the most credible or recent information. If there are significant contradictions, you may briefly acknowledge them if central to the story.
+  3.  **Headline:** Write a clear, concise, SEO-optimized headline reflecting the synthesized *overall* story or the most significant aspect of the combined information. Format as HTML `<h1>`.
+  4.  **Summary:** Craft a single paragraph summarizing the essential points and latest developments from the *combined* sources. Format as HTML `<p>`.
+  5.  **Article Body Structure:** Organize the synthesized article logically (e.g., introduction, key developments/details, context/background, conclusion). Use HTML paragraphs (`<p>`) and subheadings (`<h2>`, `<h3>`) appropriately for readability. Ensure the body flows as a single, coherent piece. Minimum 200 words, reflecting the combined depth of the sources. Wrap the entire body in a `<div>`.
+  6.  **Style:** Maintain a professional, engaging, and objective journalistic style. Ensure originality and avoid simply copying large chunks from the sources. Attribute quotes or specific claims if necessary, but blend the information smoothly.
+  7.  **Output Format:** Provide your response *strictly* in the following JSON format, with no additional text, comments, or explanations:
+      ```json
+      {{  # Escaped brace
+        "headline": "<h1>Your synthesized headline</h1>",
+        "summary": "<p>Your synthesized summary paragraph</p>",
+        "content": "<div>Your synthesized and structured HTML article body</div>"
+      }}  # Escaped brace
+      ```
+      # ^^^ Ensure this JSON block and its contents are indented correctly as part of the prompt string ^^^
+
+cluster_translation_german_prompt: |
+  You are an expert translator specializing in English-to-German news articles. Your task is to translate the provided synthesized English headline, summary, and article body into high-quality, natural-sounding German, maintaining the original structure, meaning, and journalistic tone.
+
+  **Input:** You will receive the English headline, summary, and body content below.
+
+  **English Headline:**
+  {synthesized_english_headline}
+
+  **English Summary:**
+  {synthesized_english_summary}
+
+  **English Body:**
+  {synthesized_english_body}
+
+  **Requirements:**
+
+  1.  **Accurate Translation:** Translate all three components (headline, summary, body) accurately into German.
+  2.  **Maintain Style:** Preserve the professional, engaging journalistic style of the original English text. Ensure fluent and natural German phrasing.
+  3.  **Preserve Structure:** Maintain the HTML structure (e.g., `<h1>`, `<p>`, `<h2>`, `<h3>`, `<div>`) exactly as provided in the English input, applying it to the translated German text.
+  4.  **Output Format:** Provide your response *strictly* in the following JSON format, containing the translated German components within their original HTML tags. Include no additional text, comments, or explanations:
+      ```json
+      {{  # Escaped brace
+        "headline": "<h1>Ihre übersetzte deutsche Überschrift</h1>",
+        "summary": "<p>Ihr übersetzter deutscher Zusammenfassungsabsatz</p>",
+        "content": "<div>Ihr übersetzter und strukturierter deutscher HTML-Artikelinhalt</div>"
+      }}  # Escaped brace
+      ```
+
