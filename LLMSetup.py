@@ -29,7 +29,7 @@ def initialize_model(provider: str, model_type: str = "default"):
         selected_model = "gemini-2.0-flash"
         print("Using flash model")
     elif model_type == "default":
-        selected_model = "gemini-2.5-pro-exp-03-25"
+        selected_model = "gemini-2.5-flash-preview-04-17"
         print("Using default model")
     else:
         raise ValueError("Unsupported model type. Choose 'default', 'lite', or 'flash'.")
