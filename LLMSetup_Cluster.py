@@ -39,14 +39,14 @@ def initialize_model(provider: str, model_type: str = "default"):
 
     # Define model names based on type
     if model_type == "lite":
-        selected_model_name = "gemini-1.5-flash-latest"
-        logger.info("Using model: gemini-1.5-flash-latest (for lite/flash type)")
+        selected_model_name = "gemini-2.5-flash-preview-04-17"
+        logger.info("Using model: gemini-2.5-flash-preview-04-17 (for lite/flash type)")
     elif model_type == "flash":
-        selected_model_name = "gemini-1.5-flash-latest"
-        logger.info("Using model: gemini-1.5-flash-latest (for flash type)")
+        selected_model_name = "gemini-2.5-flash-preview-04-17"
+        logger.info("Using model: gemini-2.5-flash-preview-04-17 (for flash type)")
     elif model_type == "default":
-        selected_model_name = "gemini-1.5-pro-latest"
-        logger.info("Using model: gemini-1.5-pro-latest (for default type)")
+        selected_model_name = "gemini-2.5-flash-preview-04-17"
+        logger.info("Using model: gemini-2.5-flash-preview-04-17 (for default type)")
     else:
         logger.error(f"Unsupported model type: {model_type}. Choose 'default', 'lite', or 'flash'.")
         raise ValueError("Unsupported model type. Choose 'default', 'lite', or 'flash'.")
