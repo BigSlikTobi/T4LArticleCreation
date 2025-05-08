@@ -178,7 +178,7 @@ class ImageSearcher:
     async def validate_image_url(self, session: aiohttp.ClientSession, image_data: Dict[str, str]) -> bool:
         url = image_data['url']
         # Add blacklist check
-        blacklisted_domains = ['lookaside.instagram.com', 'gettyimages.com', 'shutterstock.com', 'istockphoto.com', 'tiktok.com/', 'fanatics.com']
+        blacklisted_domains = ['lookaside.instagram.com', 'gettyimages.com', 'shutterstock.com', 'istockphoto.com', 'tiktok.com/', 'fanatics.com',  'static.nike.com', 'c8.alamy.com', 'alamy.com']
         if any(domain in url.lower() for domain in blacklisted_domains):
             print(f"Blacklisted image URL: {url}")
             return False
