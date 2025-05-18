@@ -27,13 +27,31 @@ async def generate_german_article(main_content: str, verbose: bool = False) -> d
     Generates a German article with headline, summary, and structured content.
     Returns a dict with 'headline', 'summary', and 'content'.
     If verbose is True, includes the raw Gemini response under 'raw_response'.
+    
+    The main_content parameter is expected to be a JSON string with the format:
+    {
+      "headline": "headline text",
+      "content": "content text"
+    }
     """
+    # Parse main_content from JSON string
+    try:
+        content_obj = json.loads(main_content)
+        headline = content_obj.get('headline', '')
+        content = content_obj.get('content', '')
+    except (json.JSONDecodeError, TypeError):
+        # Fallback if main_content is not valid JSON - treat whole input as content
+        headline = ""
+        content = main_content
+    
     prompt = f"""
 {prompts['german_prompt']}
 
 **Source Information:**
-Main content (main_content) – the central story:
-{main_content}
+Original headline: {headline}
+
+Main content – the central story:
+{content}
 
 Please provide your answer strictly in the following JSON format without any additional text:
 {{

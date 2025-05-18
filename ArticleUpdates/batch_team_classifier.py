@@ -1,3 +1,5 @@
+# Deprecated: This script is deprecated and will be removed in future versions.
+
 import asyncio
 import json
 from typing import Dict, List
