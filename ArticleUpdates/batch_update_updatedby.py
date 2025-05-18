@@ -1,3 +1,4 @@
+# Deprecated: This script is deprecated and will be removed in future versions.
 import sys
 import os
 import asyncio

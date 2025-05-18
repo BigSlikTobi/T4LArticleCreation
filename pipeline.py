@@ -20,7 +20,15 @@ async def process_single_article(article: Dict, image_searcher: ImageSearcher, t
     7. Mark source article as processed only if saved successfully
     """
     article_id = article['id']
-    main_content = article.get('Content', '')
+    
+    # Create a structured main_content with headline and content
+    main_content = {
+        "headline": article.get('headline', ''),
+        "content": article.get('Content', '')
+    }
+    
+    # Convert to JSON string
+    main_content = json.dumps(main_content)
     isArticleCreated = False
     
     print(f"\n{'='*80}")
@@ -43,10 +51,12 @@ async def process_single_article(article: Dict, image_searcher: ImageSearcher, t
 
         # Step 2: Generate German Article
         print("\nStep 2: Generating German Article...")
-        german_result = await generate_german_article(
-            english_result.get('headline', ''),
-            english_result.get('content', '')
-        )
+        # Create structured main_content for German translation
+        german_input = {
+            "headline": english_result.get('headline', ''),
+            "content": english_result.get('content', '')
+        }
+        german_result = await generate_german_article(json.dumps(german_input))
         if not german_result:
             raise Exception("Failed to generate German article")
         german_headline = german_result.get('headline', '').replace('<h1>', '').replace('</h1>', '')

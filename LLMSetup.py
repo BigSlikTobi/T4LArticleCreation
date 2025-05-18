@@ -7,13 +7,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def initialize_model(provider: str, model_type: str = "default"):
+def initialize_model(provider: str, model_type: str = "default", grounding_enabled: bool = True):
     """
-    Initialize a Gemini model with Google Search grounding using the new client configuration.
+    Initialize a Gemini model with optional Google Search grounding using the new client configuration.
 
     Args:
         provider: The provider name. Only 'gemini' is supported.
         model_type: The type of Gemini model to use ("default", "lite", or "flash").
+        grounding_enabled: Whether to enable Google Search grounding.
 
     Returns:
         A dictionary containing the model name, the models object (client.models), a flag indicating if grounding is enabled,
@@ -43,8 +44,10 @@ def initialize_model(provider: str, model_type: str = "default"):
     client = genai.Client(api_key=google_api_key)
 
     # Configure grounding tool using the provided pattern
-    tools_config = [types.Tool(google_search=types.GoogleSearch())]
-    grounding_enabled = True
+    if grounding_enabled:
+        tools_config = [types.Tool(google_search=types.GoogleSearch())]
+    else:
+        tools_config = []
 
     # Return client.models so that usage like model.generate_content(...) works in your other files
     return {
@@ -56,7 +59,7 @@ def initialize_model(provider: str, model_type: str = "default"):
 
 if __name__ == "__main__":
     try:
-        model_info = initialize_model("gemini", "flash")
+        model_info = initialize_model("gemini", "flash", grounding_enabled=True)
         print("\nModel Initialized:")
         print(f"  Model Name: {model_info['model_name']}")
         print(f"  Grounding Enabled: {model_info['grounding_enabled']}")

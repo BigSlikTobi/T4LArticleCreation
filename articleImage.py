@@ -47,7 +47,7 @@ class ImageSearcher:
         # Initialize LLM if enabled
         if self.use_llm:
             try:
-                self.llm_config = initialize_model("gemini")
+                self.llm_config = initialize_model("gemini", model_type="flash", grounding_enabled=False)
                 self.llm = self.llm_config["model"]
                 print(f"LLM initialized for query optimization using {self.llm_config['model_name']}")
             except Exception as e:
@@ -178,7 +178,7 @@ class ImageSearcher:
     async def validate_image_url(self, session: aiohttp.ClientSession, image_data: Dict[str, str]) -> bool:
         url = image_data['url']
         # Add blacklist check
-        blacklisted_domains = ['lookaside.instagram.com', 'gettyimages.com', 'shutterstock.com', 'istockphoto.com', 'tiktok.com/', 'fanatics.com',  'static.nike.com', 'c8.alamy.com', 'alamy.com', 'fanatics.frgimages.com']
+        blacklisted_domains = ['lookaside.instagram.com', 'gettyimages.com', 'shutterstock.com', 'istockphoto.com', 'tiktok.com/', 'fanatics.com',  'static.nike.com', 'c8.alamy.com', 'alamy.com', 'fanatics.frgimages.com', 'redcircle.com']
         if any(domain in url.lower() for domain in blacklisted_domains):
             print(f"Blacklisted image URL: {url}")
             return False
@@ -300,7 +300,7 @@ class ImageSearcher:
                     return None
         return None
 
-    async def _search_images_ddgs(self, query: str, num_images: int = 3) -> List[Dict[str, str]]:
+    async def _search_images_ddgs(self, query: str, num_images: int = 2) -> List[Dict[str, str]]:
         try:
             print("Using DuckDuckGo Search as fallback...")
             filtered_results = []
@@ -525,7 +525,7 @@ class ImageSearcher:
             
         return processed_images
 
-    async def search_images(self, query: str, num_images: int = 3, content: str = None) -> List[Dict[str, str]]:
+    async def search_images(self, query: str, num_images: int = 2, content: str = None) -> List[Dict[str, str]]:
         content_for_ranking = content or query
         if self.use_llm:
             optimized_query = await self._optimize_query_with_llm(query)
