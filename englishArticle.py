@@ -123,7 +123,7 @@ Please provide your answer strictly in the following JSON format without any add
     if isinstance(raw_response, str) and raw_response.strip().startswith("```"):
         lines = raw_response.strip().splitlines()
         # Check if the list is not empty and then check the first line
-        if lines and lines.startswith("```"): 
+        if lines and lines[0].startswith("```"): 
             lines = lines[1:]
         # Check if the list is not empty and then check the last line
         if lines and lines[-1].startswith("```"):
