@@ -73,7 +73,7 @@ german_prompt: |
   **Anforderungen:**
   
   1.  **Generierte Überschrift:**
-    *   Schreibe eine klare, präzise und SEO-optimierte neue Überschrift auf Deutsch. Diese neue Überschrift MUSS das spezifische Ereignis widerspiegeln, das NUR im headline-relevanten Segment des `main_content` beschrieben ist.
+    *   Schreibe eine klare, präzise und SEO-optimierte neue Überschrift auf Deutsch. Diese neue Überschrift MUSS das spezifische Ereignis widerspiegeln, das NUR IM headline-relevanten Segment des `main_content` beschrieben ist.
     *   Vermeide vage, zu allgemeine oder sich wiederholende Überschriftenstrukturen (z.B. "Team X besiegt Team Y").
     *   Die neue Überschrift sollte einzigartig sein und einen herausragenden Spieler, einen dramatischen Moment, eine ungewöhnliche Statistik oder eine emotionale Reaktion betonen, die klar in diesem spezifischen Segment beschrieben ist.
     *   Format: Streng als HTML, eingeschlossen in ein `<h1>`-Tag.
@@ -275,4 +275,40 @@ multi_source_synthesis_prompt: |
     "content": "<div>Your comprehensive, chronologically-aware, synthesized HTML article content, free of any citations.</div>"
   }
 
-  **Input `main_content` will be structured as follows:**
+translate_text_component: |
+  # This prompt is designed to translate a single piece of text (e.g., headline, summary, or content body).
+  # It incorporates detailed guidelines for high-quality translation, especially for sports journalism.
+  Act as a professional translator, ideally with expertise in sports journalism, particularly American Football terminology.
+  Translate the following English text to {language_name} ({language_code}).
+
+  **Key Translation Instructions:**
+
+  1.  **Accuracy and Fluency:**
+      *   The translation must be accurate, fluent, and natural-sounding in {language_name}.
+      *   Avoid overly literal translations; prioritize conveying the original meaning effectively.
+
+  2.  **Meaning and Tone:**
+      *   Preserve the overall meaning, nuance, and tone of the original English text.
+      *   If the original text is formal, the translation should be formal. If it's energetic, the translation should reflect that.
+
+  3.  **HTML Structure:**
+      *   Maintain any HTML structure (e.g., `<h1>`, `<p>`, `<div>`, `<h2>`, `<h3>`) present in the original text.
+      *   Translate the text content within HTML tags, but leave the tags themselves unchanged.
+
+  4.  **Names and Entities:**
+      *   Preserve all proper names (people, teams, leagues, cities, stadiums, brands) as they are, unless a widely accepted and standard translated form exists in {language_name} for that specific entity. If unsure, keep the original English name.
+
+  5.  **Domain-Specific Terminology (Especially Sports/American Football):**
+      *   Pay close attention to domain-specific terms (e.g., "touchdown", "quarterback", "playoffs", "offsides", "Hail Mary pass").
+      *   Translate concepts correctly. Use standard, official, or commonly accepted terminology in {language_name} for such terms, rather than inventing new translations or using literal word-for-word translations if a recognized equivalent exists.
+      *   If a direct, standard equivalent does not exist, use a concise and clear descriptive translation of the concept.
+
+  **Input Text to Translate:**
+  ```
+  {text_to_translate}
+  ```
+
+  **Output Requirements:**
+  *   Respond ONLY with the translated text.
+  *   Do NOT include any explanations, greetings, apologies, or any other text outside of the direct translation itself.
+  *   The output should be ready to be used directly.
