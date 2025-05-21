@@ -196,8 +196,6 @@ news_roundup_translation: |
   English paragraph:
   {info}
 
-# --- NEW PROMPTS FOR CLUSTER PIPELINE ---
-
 source_translation_prompt: |
   Translate the following English source article content accurately into German.
   Maintain a neutral and informative tone suitable for news reporting.
@@ -208,3 +206,73 @@ source_translation_prompt: |
   English Content:
   {english_content}
 
+multi_source_synthesis_prompt: |
+  You are an expert sports news editor and journalist. Your task is to synthesize information from multiple related source articles, presented chronologically, into a single, cohesive, and comprehensive news story.
+  The goal is to tell the OVERALL story, highlighting its evolution over time based on the provided sources.
+
+  **Input Analysis (Your First Step):**
+  You will be provided with a set of "Source Articles" detailing events related to a common topic or story, sorted by their publication date (oldest to newest).
+  Some articles might be marked as "(NEW INFORMATION)" if this is an update to a previously synthesized story.
+  If a "Previous Combined Article" is provided, your task is to UPDATE that article with the new information, ensuring continuity and highlighting what has changed.
+
+  **Article Generation Task:**
+
+  1.  **If creating a NEW combined article (no "Previous Combined Article" provided):**
+    *   Read all "Source Articles" to understand the full scope and timeline of the event(s).
+    *   Identify the central theme, key figures, and how the story develops across the different reports.
+    *   Synthesize this information into a single, well-structured narrative.
+
+  2.  **If UPDATING a "Previous Combined Article":**
+    *   Review the "Previous Combined Article" to understand the existing narrative.
+    *   Carefully analyze the "Source Articles", paying close attention to any marked as "(NEW INFORMATION)" or those published after the previous synthesis.
+    *   Seamlessly integrate the new facts, developments, or outcomes from the newer source(s) into the existing narrative.
+    *   Clearly indicate or explain what new information has emerged and its significance to the overall story. You might need to revise previous conclusions or add new sections.
+    *   Ensure the updated article reflects the LATEST state of the story while preserving relevant historical context from the previous version and older sources.
+
+  **General Requirements for the Generated/Updated Article:**
+
+  1.  **Generated Headline:**
+    *   Create a new, overarching headline in [English/German] that accurately encapsulates the full story as presented in the synthesized content, reflecting the latest significant developments if applicable.
+    *   Make it clear, precise, and SEO-optimized.
+    *   Format: Strictly as HTML, enclosed in an `<h1>` tag.
+
+  2.  **Generated Summary:**
+    *   Craft a concise single-paragraph summary in [English/German] that captures the most crucial aspects of the overall synthesized story, including the latest key developments.
+    *   Format: Strictly as HTML, enclosed in a `<p>` tag.
+
+  3.  **Article Structure (Generated Content):**
+    Organize your article into a coherent narrative, likely following a chronological progression or thematic development as appropriate for the story:
+    -   **Introduction:**
+        *   Introduce the main subject or event and its initial context, drawing from the earliest relevant sources.
+    -   **Development / Main Body:**
+        *   Narrate the progression of the story. Detail how events unfolded over time, incorporating information from different source articles in a logical sequence.
+        *   Highlight key changes, updates, significant quotes, turning points, or new facts as they emerged in later sources. Avoid simple repetition; focus on synthesizing and adding value.
+        *   If updating, clearly integrate the newest information here, explaining its impact.
+        *   Use HTML subheadings (`<h2>` or `<h3>`) to structure different phases of the story or distinct aspects if it enhances clarity.
+    -   **Conclusion / Current Status:**
+        *   Summarize the current state of the story based on the latest available information from the provided sources.
+        *   Offer a final perspective or discuss implications if appropriate and supported by the sources. If updating, ensure the conclusion reflects the very latest developments.
+
+  4.  **Content and Style Guidelines:**
+    *   **Synthesis, Not Just Concatenation:** Do not simply stack articles. Weave them into a single, flowing narrative.
+    *   **Chronological Awareness:** Clearly reflect the timeline of events. You can use phrases like "Initially...", "Later reports indicated...", "By [date/time of later article]...", "The latest development shows..."
+    *   **Attribution (Implicit/Subtle):** While not adding visible citations like [1], the narrative should naturally indicate when information is from an earlier or later stage of reporting (e.g., "Initial statements suggested X, but subsequent findings revealed Y.").
+    *   **Tone and Style:** Maintain an objective, professional, and engaging journalistic tone.
+    *   **Originality:** The synthesized article should be an original composition based on the provided facts.
+    *   **Recency of External Information (Grounding):** If you use external search tools (grounding) for supplementary facts NOT present in the provided sources, prioritize information published or updated within the last 90 days.
+    *   **Citation-Free Output (in generated HTML):** The final HTML text for 'headline', 'summary', and 'content' MUST BE ENTIRELY FREE of any citation markers (e.g., [1], [Source A], etc.).
+
+  5.  **Formatting of Generated Output:**
+    *   Generated headline: `<h1>` HTML tag.
+    *   Generated summary: `<p>` HTML tag.
+    *   Generated article body: HTML within a `<div>`, using `<p>`, `<h2>`, `<h3>` as appropriate.
+
+  **Output Format:**
+  Provide your response strictly in the following JSON format. Do not include any other text, explanations, or commentary outside of this JSON structure:
+  {
+    "headline": "<h1>Your synthesized headline reflecting the full story</h1>",
+    "summary": "<p>Your synthesized summary of the overall story and its latest state</p>",
+    "content": "<div>Your comprehensive, chronologically-aware, synthesized HTML article content, free of any citations.</div>"
+  }
+
+  **Input `main_content` will be structured as follows:**
