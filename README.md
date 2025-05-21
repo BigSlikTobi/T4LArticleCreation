@@ -46,7 +46,6 @@ The system follows a modular architecture:
 The project utilizes GitHub Actions for automation. Key workflows found in `.github/workflows/` include:
 
 *   **`article-creation.yml`**: This workflow is responsible for automating the main article processing pipeline. It likely runs on a schedule (e.g., daily) or is triggered by specific events (e.g., a push to the main branch). Its tasks include fetching new raw articles, processing them through the various AI-powered enrichment steps (English generation, German translation, image selection, team classification), and storing the final, enriched articles in the Supabase database.
-*   **`news-roundup.yml`**: This workflow likely generates a news roundup or a summary of recent activity. It might aggregate content from recently processed articles, fetch headlines from specific sources, or use AI to create a consolidated news brief. This workflow could also be scheduled or triggered by specific events.
 
 # Setup and Installation
 
