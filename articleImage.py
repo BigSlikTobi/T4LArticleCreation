@@ -425,42 +425,93 @@ class ImageSearcher:
         Synchronously upload the image bytes to Supabase Storage with improved error handling.
         This function is wrapped using asyncio.to_thread to avoid blocking.
         """
-        bucket_name = 'images'  # Use your actual bucket name here
-        
-        # Always use image/jpeg content type to comply with RLS
+        bucket_name = 'images'  # Define bucket_name at the start of the function
         content_type = "image/jpeg"
-        print(f"Using content type: {content_type} for upload")
+        print(f"Using content type: {content_type} for upload to {destination_path}")
         
         try:
-            # Upload the file
+            # Upload the file.
             response = self.supabase.storage.from_(bucket_name).upload(
                 path=destination_path,
-                file=image_bytes,  # Pass bytes directly
-                file_options={
-                    "contentType": content_type
-                }
+                file=image_bytes,
+                file_options={"contentType": content_type}
             )
             
-            # Check for various error conditions in the response
+            # Handle cases where the client might return an error in the response object
+            # instead of raising an exception (less common for 409 with supabase-py v2+).
             if isinstance(response, dict) and response.get("error"):
-                error_message = str(response.get("error"))
-                print(f"Supabase upload error: {error_message}")
-                raise Exception(f"Upload failed: {error_message}")
-                
-            # Get the proper public URL from Supabase
-            # Use environment variable for Supabase URL if available
-            supabase_url = os.environ.get("SUPABASE_URL", "https://yqtiuzhedkfacwgormhn.supabase.co")
-            if supabase_url.endswith('/'):
-                supabase_url = supabase_url[:-1]
-                
+                error_message_from_response = str(response.get("error"))
+                # This is a fallback, primary handling is in the except block
+                if "Duplicate" in error_message_from_response and "409" in error_message_from_response:
+                    print(f"Interpreting response object error as duplicate for {destination_path}. Using existing public URL.")
+                    supabase_url = os.environ.get("SUPABASE_URL", "https://yqtiuzhedkfacwgormhn.supabase.co").rstrip('/')
+                    public_url = f"{supabase_url}/storage/v1/object/public/{bucket_name}/{destination_path}"
+                    return public_url
+                print(f"Supabase upload error in response object: {error_message_from_response}")
+                raise Exception(f"Upload failed with error in response object: {error_message_from_response}")
+
+            # If no exception and no error in response, construct public URL
+            supabase_url = os.environ.get("SUPABASE_URL", "https://yqtiuzhedkfacwgormhn.supabase.co").rstrip('/')
             public_url = f"{supabase_url}/storage/v1/object/public/{bucket_name}/{destination_path}"
             print(f"Successful upload to Supabase storage: {public_url}")
             return public_url
             
-        except Exception as e:
-            print(f"Error uploading to Supabase: {str(e)}")
-            # Re-raise the exception to be handled by the caller
-            raise
+        except Exception as e: # Catches SupabaseAPIError, StorageAPIError, etc.
+            handled_as_duplicate = False
+            
+            # Primary check: e.message is the dictionary with specific Supabase error details.
+            # Based on logs: e.message is {'message': 'The resource already exists', 'error': 'Duplicate', 'statusCode': '409'}
+            if hasattr(e, 'message') and isinstance(e.message, dict):
+                details = e.message
+                error_type = details.get('error')
+                status_code = details.get('statusCode')
+
+                if isinstance(error_type, str) and error_type.lower() == 'duplicate' and \
+                   isinstance(status_code, str) and status_code == '409':
+                    
+                    print(f"CONFIRMED DUPLICATE: Image already exists at {destination_path} (Supabase error via e.message: Duplicate, Status: 409). Constructing and returning existing public URL.")
+                    supabase_url = os.environ.get("SUPABASE_URL", "https://yqtiuzhedkfacwgormhn.supabase.co").rstrip('/')
+                    public_url = f"{supabase_url}/storage/v1/object/public/{bucket_name}/{destination_path}"
+                    return public_url # Return the URL of the existing resource
+                else:
+                    print(f"Debug: e.message was a dict, but not the expected 409 Duplicate. Details: error='{error_type}', statusCode='{status_code}'")
+
+            if not handled_as_duplicate:
+                # If not handled as a duplicate via e.message, log extensively and re-raise.
+                # This block will execute if the error is not the specific 409 Duplicate we're targeting,
+                # or if e.message was not the expected dictionary.
+                print(f"UNHANDLED EXCEPTION during Supabase upload (type: {type(e)}): {str(e)}")
+                if hasattr(e, 'status_code'): # For some exception types that have a direct status_code
+                    print(f"  Exception's direct status_code: {e.status_code}")
+                
+                # Log details from e.response if available (common for HTTP client errors)
+                if hasattr(e, 'response'):
+                    if hasattr(e.response, 'status_code'):
+                         print(f"  e.response.status_code: {e.response.status_code}")
+                    if hasattr(e.response, 'text'): 
+                        response_text = e.response.text
+                        print(f"  e.response.text: {response_text[:500] if response_text else '[empty response text]'}")
+                
+                # Log e.message content again, as it's key
+                if hasattr(e, 'message'):
+                    message_content = e.message
+                    try:
+                        message_str = str(message_content) # This might be the dict or a string
+                        if len(message_str) > 1000: message_str = message_str[:1000] + "..." # Increased length for dicts
+                    except Exception as str_conv_err:
+                        message_str = f"[Could not convert e.message to string: {str_conv_err}]"
+                    print(f"  Log: e.message content: {message_str}")
+                
+                # Log e.args, as it might contain the error dictionary or status
+                if hasattr(e, 'args') and e.args:
+                    try:
+                        args_str = str(e.args)
+                        if len(args_str) > 1000: args_str = args_str[:1000] + "..."
+                    except Exception as str_conv_err:
+                        args_str = f"[Could not convert e.args to string: {str_conv_err}]"
+                    print(f"  Log: e.args content: {args_str}")
+                
+                raise # Re-raise the original error if not handled as the specific duplicate case
     
     async def download_and_upload_image(self, image_url: str, destination_path: str) -> str:
         """Combine download and upload to return the Supabase public URL with improved error handling."""
@@ -508,11 +559,20 @@ class ImageSearcher:
                 print(f"✅ Image {idx}/{num_images} successfully processed and uploaded to Supabase")
                 
             except Exception as e:
-                print(f"❌ Failed to process image {idx}/{num_images}: {str(e)}")
-                # Keep the original URL as fallback if upload fails
+                print(f"❌ Failed to process image {idx}/{num_images} ({original_url[:60]}...): {str(e)}")
+                
+                # Construct the expected Supabase URL even on failure
+                supabase_url_env = os.environ.get("SUPABASE_URL", "https://yqtiuzhedkfacwgormhn.supabase.co").rstrip('/')
+                bucket_name = 'images'  # As used in upload_image_to_supabase
+                expected_supabase_url = f"{supabase_url_env}/storage/v1/object/public/{bucket_name}/{destination_path}"
+                
+                image['url'] = expected_supabase_url
                 image['original_url'] = original_url  # For reference
-                image['processed'] = False
-                print(f"    Using original URL as fallback: {original_url[:60]}...")
+                image['processed'] = False # Mark as not successfully processed
+                
+                print(f"    Image processing failed. Storing expected Supabase URL: {expected_supabase_url}")
+                print(f"    Original URL was: {original_url[:60]}...")
+                print("    Note: This image was NOT successfully uploaded to Supabase.")
                 
                 # We strictly avoid using thumbnails as requested
                 print("    Not attempting with thumbnail URL as per requirements")
