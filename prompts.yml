@@ -39,7 +39,7 @@ english_prompt: |
         *   End with a closing thought or implication directly and logically linked to this event.
 
   4.  **Content and Style Guidelines:**
-    *   **Length:** The generated article (excluding headline and summary) should match the depth and complexity of the information found in the headline-relevant segment of `main_content`, with a minimum of 150 words.
+    *   **Length:** The generated article (excluding headline and summary) should match the depth and complexity of the information found in the headl ine-relevant segment of `main_content`, with a minimum of 150 words.
     *   **Tone and Style:** Write dynamically and energetically. Use varied sentence structures, vivid descriptions, strong verbs, and appropriate adjectives. Rhetorical questions can be used sparingly for engagement if they fit the journalistic style.
     *   **Originality and Focus:** Ensure the generated article is an original composition based strictly on the facts from the headline-relevant segment of `main_content`. Maintain strict focus on this specific event. Avoid general discussions or unrelated background information.
     *   **Citation-Free Output:** Although you may use external search tools (grounding) to gather or verify information for the specific event, the final HTML text you write for the 'headline', 'summary', and 'content' fields in the JSON output MUST BE ENTIRELY FREE of any citation markers (e.g., [1], [2, 3], [source 4], etc.), footnotes, or any similar source referencing indicators. The text in these fields must be a clean, narrative article ready for direct publication. Treat source identification and verification as part of your internal information gathering process, not for inclusion in the final article text provided in the JSON.
@@ -199,116 +199,169 @@ news_roundup_translation: |
 source_translation_prompt: |
   Translate the following English source article content accurately into German.
   Maintain a neutral and informative tone suitable for news reporting.
-  Focus on conveying the original meaning and details faithfully.
 
-  IMPORTANT: Respond ONLY with the German translation of the text below, with no additional explanations, greetings, or markdown formatting.
+summarize_article_prompt: |
+  Create a one-sentence summary of the following article based on the headline and content. 
+  The summary should be concise but informative, capturing the most important information in the article. Only mention the content itself, don't start with "This article is about" or similar phrases.
+  
+  Headline: {headline}
+  
+  Content: {content}
+  
+  Summary:
 
-  English Content:
-  {english_content}
+timeline_translation_prompt: |
+  Translate the following timeline data from English to {language_code}.
+  
+  Guidelines:
+  1. Translate all headlines, summaries, and any other text fields to {language_code}.
+  2. Maintain the same JSON structure, formatting, and information.
+  3. Use natural, fluent language that would be appropriate for a sports news website.
+  4. Be consistent with sports terminology in {language_code}.
+  5. Preserve dates, numbers, and proper nouns as appropriate.
+  6. Keep the cluster_id field unchanged.
+  
+  Original timeline data:
+  {timeline_data}
+  
+  Provide the translated timeline data in valid JSON format. Do not include any explanations or markdown formatting:
 
-multi_source_synthesis_prompt: |
-  You are an expert sports news editor and journalist. Your task is to synthesize information from multiple related source articles, presented chronologically, into a single, cohesive, and comprehensive news story.
-  The goal is to tell the OVERALL story, highlighting its evolution over time based on the provided sources.
+deep_dive_translation_prompt: |
+  Translate the following deep dive article data from English to {language_code}.
+  
+  Guidelines:
+  1. Translate all text fields (headline, content, introduction, view, justification) to {language_code}.
+  2. Maintain the same JSON structure and formatting.
+  3. Use natural, fluent language that would be appropriate for a sports news website.
+  4. Be consistent with sports terminology in {language_code}.
+  5. Preserve the analytical depth and tone of the original content.
+  6. Keep HTML formatting intact in the content field.
+  7. Ensure the viewpoint name (view) and justification remain coherent and compelling in the target language.
+  
+  Original deep dive article data:
+  {deep_dive_data}
+  
+  Provide the translated deep dive article data in valid JSON format. Do not include any explanations or markdown formatting:
 
-  **Input Analysis (Your First Step):**
-  You will be provided with a set of "Source Articles" detailing events related to a common topic or story, sorted by their publication date (oldest to newest).
-  Some articles might be marked as "(NEW INFORMATION)" if this is an update to a previously synthesized story.
-  If a "Previous Combined Article" is provided, your task is to UPDATE that article with the new information, ensuring continuity and highlighting what has changed.
+determine_viewpoints_prompt: |
+  You are an expert news analyst and editor. Your task is to identify diverse and insightful viewpoints for a deep-dive analysis of a news story or event, based on the provided information. Select viewpoints that are generic enough to be discussed in depth, yet specific enough to be relevant to the story at hand. The viewpoints should be distinct and not overlap significantly with each other. 
+
+  Consider the following examples of viewpoints, but DO NOT be limited by them. Determine the most relevant viewpoints dynamically based on the content provided:
+  - Agent / Negotiator Perspective: Focuses on contracts, endorsements, negotiations, market value.
+  - Historical / Legacy Lens: Considers the long-term impact on a player's, team's, or individual's legacy, historical comparisons.
+  - Tactical/Strategic Analysis: Deep dives into specific plays, game plans, or strategic decisions.
+
+  Based on the following information about a news story/event:
+  {story_context} # This is the ONLY placeholder that should be processed by .format()
+
+  Identify 3 to 5 distinct viewpoints. For each viewpoint:
+  1. Provide a concise "name" for the viewpoint (e.g., "Player's Career Impact", "Team Strategy Breakdown").
+  2. Provide a brief "justification" (1-2 sentences) explaining why this viewpoint is relevant and what specific aspects it would explore for this particular story.
+
+  Return your response STRICTLY as a JSON array of objects, with no markdown formatting, no code blocks, and no other explanatory text outside the JSON structure. Each object in the array should have "name" and "justification" keys.
+
+  Example JSON output:
+  [
+    {{
+      "name": "Quarterback's Contract Negotiation Angle",
+      "justification": "This viewpoint will explore the financial implications and leverage points in the star quarterback's ongoing contract talks, considering recent market trends for similar players."
+    }},
+    {{
+      "name": "Impact on Team's Playoff Hopes",
+      "justification": "This viewpoint analyzes how the event directly affects the team's chances of making the playoffs and their competitive standing within the league."
+    }}
+  ]
+
+generate_deep_dive_article_prompt: |
+  You are an expert investigative journalist and feature writer for a reputable news website.
+  Your task is to create a unique, engaging, and well-researched deep-dive article exploring a specific viewpoint.
+
+  **Input Analysis:**
+  Story Context: {story_context}
+  
+  Viewpoint to Explore:
+  - Name: {viewpoint_name}
+  - Justification: {viewpoint_justification}
 
   **Article Generation Task:**
+  Based on the provided story context and viewpoint, create an in-depth analysis article that thoroughly explores this specific perspective.
 
-  1.  **If creating a NEW combined article (no "Previous Combined Article" provided):**
-    *   Read all "Source Articles" to understand the full scope and timeline of the event(s).
-    *   Identify the central theme, key figures, and how the story develops across the different reports.
-    *   Synthesize this information into a single, well-structured narrative.
-
-  2.  **If UPDATING a "Previous Combined Article":**
-    *   Review the "Previous Combined Article" to understand the existing narrative.
-    *   Carefully analyze the "Source Articles", paying close attention to any marked as "(NEW INFORMATION)" or those published after the previous synthesis.
-    *   Seamlessly integrate the new facts, developments, or outcomes from the newer source(s) into the existing narrative.
-    *   Clearly indicate or explain what new information has emerged and its significance to the overall story. You might need to revise previous conclusions or add new sections.
-    *   Ensure the updated article reflects the LATEST state of the story while preserving relevant historical context from the previous version and older sources.
-
-  **General Requirements for the Generated/Updated Article:**
+  **Requirements:**
 
   1.  **Generated Headline:**
-    *   Create a new, overarching headline in [English/German] that accurately encapsulates the full story as presented in the synthesized content, reflecting the latest significant developments if applicable.
-    *   Make it clear, precise, and SEO-optimized.
+    *   Write a clear, precise, and SEO-optimized headline that reflects both the story and the specific viewpoint being analyzed.
+    *   Avoid vague or generic headlines. Instead, emphasize the unique angle or insight this viewpoint brings to the story.
     *   Format: Strictly as HTML, enclosed in an `<h1>` tag.
 
-  2.  **Generated Summary:**
-    *   Craft a concise single-paragraph summary in [English/German] that captures the most crucial aspects of the overall synthesized story, including the latest key developments.
-    *   Format: Strictly as HTML, enclosed in a `<p>` tag.
+  2.  **Generated Introduction:**
+    *   Begin by directly addressing the viewpoint's relevance to the story.
+    *   Set up the key questions or themes this analysis will explore.
+    *   Provide immediate context for understanding this perspective.
+    *   Format: HTML paragraphs using `<p>` tags.
 
-  3.  **Article Structure (Generated Content):**
-    Organize your article into a coherent narrative, likely following a chronological progression or thematic development as appropriate for the story:
-    -   **Introduction:**
-        *   Introduce the main subject or event and its initial context, drawing from the earliest relevant sources.
-    -   **Development / Main Body:**
-        *   Narrate the progression of the story. Detail how events unfolded over time, incorporating information from different source articles in a logical sequence.
-        *   Highlight key changes, updates, significant quotes, turning points, or new facts as they emerged in later sources. Avoid simple repetition; focus on synthesizing and adding value.
-        *   If updating, clearly integrate the newest information here, explaining its impact.
-        *   Use HTML subheadings (`<h2>` or `<h3>`) to structure different phases of the story or distinct aspects if it enhances clarity.
-    -   **Conclusion / Current Status:**
-        *   Summarize the current state of the story based on the latest available information from the provided sources.
-        *   Offer a final perspective or discuss implications if appropriate and supported by the sources. If updating, ensure the conclusion reflects the very latest developments.
+  3.  **Article Structure (Main Content):**
+    Organize your article into these components:
+    -   **Key Bullet Points (Analysis Framework):**
+        *   Present 3-5 critical insights or arguments that form the basis of your analysis.
+        *   Each point should be specific and directly related to the viewpoint.
+        *   Format these as an HTML unordered list (`<ul>` with `<li>` items).
+    -   **Detailed Analysis:**
+        *   Provide an in-depth exploration of each key point.
+        *   Include relevant context, implications, and potential outcomes.
+        *   Use external search tools (grounding) only for information published within the last 90 days.
+        *   Use HTML subheadings (`<h2>` or `<h3>`) where appropriate.
+    -   **Conclusion:**
+        *   Synthesize the key findings from this viewpoint's perspective.
+        *   Offer clear takeaways or implications for readers.
+        *   Format as HTML paragraphs.
 
   4.  **Content and Style Guidelines:**
-    *   **Synthesis, Not Just Concatenation:** Do not simply stack articles. Weave them into a single, flowing narrative.
-    *   **Chronological Awareness:** Clearly reflect the timeline of events. You can use phrases like "Initially...", "Later reports indicated...", "By [date/time of later article]...", "The latest development shows..."
-    *   **Attribution (Implicit/Subtle):** While not adding visible citations like [1], the narrative should naturally indicate when information is from an earlier or later stage of reporting (e.g., "Initial statements suggested X, but subsequent findings revealed Y.").
-    *   **Tone and Style:** Maintain an objective, professional, and engaging journalistic tone.
-    *   **Originality:** The synthesized article should be an original composition based on the provided facts.
-    *   **Recency of External Information (Grounding):** If you use external search tools (grounding) for supplementary facts NOT present in the provided sources, prioritize information published or updated within the last 90 days.
-    *   **Citation-Free Output (in generated HTML):** The final HTML text for 'headline', 'summary', and 'content' MUST BE ENTIRELY FREE of any citation markers (e.g., [1], [Source A], etc.).
+    *   **Length:** Minimum 500 words for the main article (excluding headline).
+    *   **Tone:** Professional and analytical while remaining accessible.
+    *   **Focus:** Maintain strict focus on analyzing the story through this specific viewpoint.
+    *   **Citation-Free Output:** The final HTML text must be free of any citation markers, footnotes, or source references.
 
-  5.  **Formatting of Generated Output:**
-    *   Generated headline: `<h1>` HTML tag.
-    *   Generated summary: `<p>` HTML tag.
-    *   Generated article body: HTML within a `<div>`, using `<p>`, `<h2>`, `<h3>` as appropriate.
+  5.  **HTML Formatting:**
+    *   Generated headline: HTML `<h1>` tag
+    *   Introduction: HTML paragraphs with `<p>` tags
+    *   Bullet points: HTML unordered list with `<ul>` and `<li>` tags
+    *   Main content: HTML formatted with `<p>`, `<h2>`, `<h3>` as needed
+    *   The entire article content (including introduction, bullet points, and analysis) wrapped in a `<div>` container
 
   **Output Format:**
-  Provide your response strictly in the following JSON format. Do not include any other text, explanations, or commentary outside of this JSON structure:
-  {
-    "headline": "<h1>Your synthesized headline reflecting the full story</h1>",
-    "summary": "<p>Your synthesized summary of the overall story and its latest state</p>",
-    "content": "<div>Your comprehensive, chronologically-aware, synthesized HTML article content, free of any citations.</div>"
-  }
+  Provide your response in these clearly marked sections:
 
-translate_text_component: |
-  # This prompt is designed to translate a single piece of text (e.g., headline, summary, or content body).
-  # It incorporates detailed guidelines for high-quality translation, especially for sports journalism.
-  Act as a professional translator, ideally with expertise in sports journalism, particularly American Football terminology.
-  Translate the following English text to {language_name} ({language_code}).
+  [START Headline]
+  <h1>Your SEO-optimized headline for this viewpoint analysis</h1>
+  [END Headline]
+  
+  [START INTRODUCTION]
+  <p>Your first introduction paragraph</p>
+  <p>Your additional introduction paragraphs if needed</p>
+  [END INTRODUCTION]
 
-  **Key Translation Instructions:**
+  [START BULLET POINTS]
+  <ul>
+  <li>Your first key point</li>
+  <li>Your second key point</li>
+  <li>Additional key points</li>
+  </ul>
+  [END BULLET POINTS]
 
-  1.  **Accuracy and Fluency:**
-      *   The translation must be accurate, fluent, and natural-sounding in {language_name}.
-      *   Avoid overly literal translations; prioritize conveying the original meaning effectively.
+  [START ARTICLE]
+  <div>
+  <!-- Main article content only - do NOT include headline or introduction here -->
+  <!-- The headline and introduction are stored separately -->
+  <h2>First Analytical Section</h2>
+  <p>Your detailed analysis content...</p>
+  <!-- Additional analytical sections with proper HTML formatting -->
+  <h2>Conclusion</h2>
+  <p>Your conclusive thoughts...</p>
+  </div>
+  [END ARTICLE]
 
-  2.  **Meaning and Tone:**
-      *   Preserve the overall meaning, nuance, and tone of the original English text.
-      *   If the original text is formal, the translation should be formal. If it's energetic, the translation should reflect that.
-
-  3.  **HTML Structure:**
-      *   Maintain any HTML structure (e.g., `<h1>`, `<p>`, `<div>`, `<h2>`, `<h3>`) present in the original text.
-      *   Translate the text content within HTML tags, but leave the tags themselves unchanged.
-
-  4.  **Names and Entities:**
-      *   Preserve all proper names (people, teams, leagues, cities, stadiums, brands) as they are, unless a widely accepted and standard translated form exists in {language_name} for that specific entity. If unsure, keep the original English name.
-
-  5.  **Domain-Specific Terminology (Especially Sports/American Football):**
-      *   Pay close attention to domain-specific terms (e.g., "touchdown", "quarterback", "playoffs", "offsides", "Hail Mary pass").
-      *   Translate concepts correctly. Use standard, official, or commonly accepted terminology in {language_name} for such terms, rather than inventing new translations or using literal word-for-word translations if a recognized equivalent exists.
-      *   If a direct, standard equivalent does not exist, use a concise and clear descriptive translation of the concept.
-
-  **Input Text to Translate:**
-  ```
-  {text_to_translate}
-  ```
-
-  **Output Requirements:**
-  *   Respond ONLY with the translated text.
-  *   Do NOT include any explanations, greetings, apologies, or any other text outside of the direct translation itself.
-  *   The output should be ready to be used directly.
+  **IMPORTANT:** 
+  - The [START ARTICLE] section should contain ONLY the main analytical content
+  - Do NOT include the headline (h1) or introduction paragraphs in the [START ARTICLE] section
+  - Do NOT include the bullet points in the [START ARTICLE] section
+  - These are stored separately to avoid duplication in the UI

@@ -26,10 +26,9 @@ supabase_key = os.environ.get("SUPABASE_KEY")
 supabase: Optional[Client] = None
 if supabase_url and supabase_key:
     try:
-        supabase = create_client(supabase_url, supabase_key)
-        logger.info("Supabase client initialized successfully.")
+        supabase = create_client(supabase_url, supabase_key) # Assuming this is how client is created
     except Exception as e:
-        logger.critical(f"Failed to initialize Supabase client: {e}", exc_info=True)
+        logger.critical(f"Failed to initialize Supabase client: {e}") # Added logging for failure
 else:
     logger.critical("Supabase URL or Key not found in environment variables. Database functions will fail.")
 
@@ -37,8 +36,7 @@ else:
 # Helper function to check if Supabase client is available
 def _check_supabase_client():
     if supabase is None:
-        logger.error("Supabase client is not initialized.")
-        return False
+        logger.error("Supabase client is not initialized.") # Added logging
     return True
 
 async def fetch_primary_sources() -> List[int]:
@@ -380,16 +378,28 @@ async def fetch_clusters_to_process(status: str) -> List[Dict]:
         logger.error(f"Exception fetching clusters: {e}", exc_info=True); return []
 
 async def fetch_source_articles_for_cluster(cluster_id: Union[str, UUID]) -> List[Dict]:
-    if not _check_supabase_client(): return []
+    """
+    Fetches source articles for a given cluster_id, ordered by creation date.
+    Ensures 'headline', 'Content', 'created_at', and source name are selected.
+    Joins with NewsSource table to get the source name.
+    """
+    if not _check_supabase_client() or supabase is None:
+        logger.error(f"Supabase client not initialized. Cannot fetch articles for cluster {cluster_id}.")
+        return []
     try:
-        logger.info(f"Fetching source articles for cluster_id: {cluster_id}")
-        response = supabase.table("SourceArticles").select("id, headline, Content, created_at").eq("cluster_id", str(cluster_id)).order("created_at", desc=False).execute()
-        if getattr(response, 'error', None):
-            logger.error(f"Error fetching source articles for cluster {cluster_id}: {response.error}"); return []
-        logger.info(f"Found {len(response.data)} source articles for cluster {cluster_id}.")
+        # Join with NewsSource table to get the source name
+        response = supabase.table("SourceArticles") \
+            .select("headline, Content, created_at, NewsSource(Name)") \
+            .eq("cluster_id", str(cluster_id)) \
+            .order("created_at", desc=False) \
+            .execute() # Removed await
         return response.data if response.data else []
+    except APIError as e:
+        logger.error(f"APIError fetching source articles for cluster {cluster_id}: {e.message} - {e.details}")
+        return []
     except Exception as e:
-        logger.error(f"Exception fetching source articles for cluster {cluster_id}: {e}", exc_info=True); return []
+        logger.error(f"Unexpected error fetching source articles for cluster {cluster_id}: {e}")
+        return []
 
 async def get_existing_cluster_article(cluster_id: Union[str, UUID]) -> Optional[Dict]:
     if not _check_supabase_client(): return None
@@ -534,3 +544,460 @@ async def get_cluster_articles_needing_translation(language_code: str) -> List[D
         return []
 
 # --- END: New functions for Cluster Article Internationalization ---
+
+async def fetch_all_cluster_ids() -> List[Union[str, UUID]]:
+    """
+    Fetches all unique IDs from the 'clusters' table where cherry_pick is true.
+    """
+    if not _check_supabase_client() or supabase is None:
+        logger.error("Supabase client not initialized. Cannot fetch cluster IDs.")
+        return []
+    try:
+        # First, get all cherry-picked clusters
+        response = supabase.table("clusters").select("cluster_id").eq("cherry_pick", True).execute()
+        
+        if not response.data:
+            logger.info("No cherry-picked clusters found.")
+            return []
+            
+        cherry_picked_clusters = [item['cluster_id'] for item in response.data]
+        logger.info(f"Found {len(cherry_picked_clusters)} cherry-picked clusters.")
+        
+        # Then, get all cluster_ids that already have timelines
+        # We need to extract the cluster_id from the JSONB timeline_data field
+        existing_timelines_response = supabase.table("timelines").select("timeline_data").execute()
+        
+        existing_cluster_ids = set()
+        if existing_timelines_response.data:
+            for item in existing_timelines_response.data:
+                timeline_data = item.get('timeline_data', {})
+                if isinstance(timeline_data, dict) and 'cluster_id' in timeline_data:
+                    existing_cluster_ids.add(timeline_data['cluster_id'])
+        
+        # Filter out clusters that already have timelines
+        new_clusters = [cluster_id for cluster_id in cherry_picked_clusters 
+                       if cluster_id not in existing_cluster_ids]
+        
+        logger.info(f"Found {len(new_clusters)} clusters without timelines.")
+        return new_clusters
+        
+    except APIError as e:
+        logger.error(f"APIError fetching cluster IDs: {e.message} - {e.details}")
+        return []
+    except Exception as e:
+        logger.error(f"Unexpected error fetching cluster IDs: {e}")
+        return []
+
+async def save_timeline_to_database(cluster_id: Union[str, UUID], timeline_entries: List[Dict]) -> bool:
+    """
+    Save timeline data to the timelines table with grouped entries by date.
+    
+    Args:
+        cluster_id: The cluster ID for this timeline
+        timeline_entries: List of timeline entries with created_at, headline, summary, etc.
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    if not _check_supabase_client(): 
+        return False
+    
+    try:
+        # Generate a UUID for this timeline
+        timeline_id = str(uuid4())
+        
+        # Group entries by date (only the date part, ignoring time)
+        from collections import defaultdict
+        from datetime import datetime
+        
+        grouped_by_date = defaultdict(list)
+        
+        for entry in timeline_entries:
+            created_at_str = entry.get('created_at', '')
+            if created_at_str:
+                # Parse the datetime and extract just the date part
+                try:
+                    dt = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+                    date_key = dt.date().isoformat()  # YYYY-MM-DD format
+                    
+                    # Create a copy of the entry without full_content for database storage
+                    db_entry = {k: v for k, v in entry.items() if k != 'full_content'}
+                    grouped_by_date[date_key].append(db_entry)
+                except ValueError:
+                    logger.warning(f"Could not parse date: {created_at_str}, skipping entry")
+                    continue
+        
+        # Sort dates in descending order and create final timeline structure
+        sorted_dates = sorted(grouped_by_date.keys(), reverse=True)
+        
+        timeline_data = []
+        for date_key in sorted_dates:
+            entries_for_date = grouped_by_date[date_key]
+            
+            if len(entries_for_date) == 1:
+                # Single entry for this date
+                timeline_data.append(entries_for_date[0])
+            else:
+                # Multiple entries for this date - group them
+                grouped_entry = {
+                    "date": date_key,
+                    "articles": entries_for_date
+                }
+                timeline_data.append(grouped_entry)
+        
+        # Prepare data for insertion - include cluster_id within timeline_data JSONB
+        timeline_with_metadata = {
+            "cluster_id": str(cluster_id),
+            "timeline": timeline_data,
+            "generated_at": datetime.utcnow().isoformat() + "Z"
+        }
+        
+        insert_data = {
+            "id": timeline_id,
+            "timeline_data": timeline_with_metadata
+        }
+        
+        # Insert into database
+        response = supabase.table("timelines").insert(insert_data).execute()
+        
+        error_info = getattr(response, 'error', None)
+        if error_info:
+            logger.error(f"Error saving timeline for cluster {cluster_id}: {error_info}")
+            return False
+            
+        logger.info(f"Successfully saved timeline {timeline_id} for cluster {cluster_id} with {len(timeline_data)} date groups")
+        return timeline_id  # Return the timeline_id so it can be used for translations
+        
+    except Exception as e:
+        logger.error(f"Exception saving timeline for cluster {cluster_id}: {e}", exc_info=True)
+        return False
+
+
+async def save_translated_timeline(timeline_id: Union[str, UUID], language_code: str, translated_data: Dict) -> bool:
+    """
+    Save translated timeline data to the timelines_int table.
+    
+    Args:
+        timeline_id: The ID of the timeline in the timelines table
+        language_code: The language code (e.g., 'de')
+        translated_data: The translated timeline data
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    if not _check_supabase_client(): return False
+    
+    try:
+        # Prepare insert data
+        insert_data = {
+            "timeline_id": str(timeline_id),
+            "language_code": language_code,
+            "timeline_data": translated_data
+        }
+        
+        # Check if a translation already exists and update it if it does
+        check_response = supabase.table("timelines_int") \
+            .select("id") \
+            .eq("timeline_id", str(timeline_id)) \
+            .eq("language_code", language_code) \
+            .execute()
+            
+        if check_response.data and len(check_response.data) > 0:
+            # Update existing translation
+            existing_id = check_response.data[0]["id"]
+            logger.info(f"Updating existing {language_code} translation for timeline {timeline_id}")
+            
+            response = supabase.table("timelines_int") \
+                .update({"timeline_data": translated_data}) \
+                .eq("id", existing_id) \
+                .execute()
+        else:
+            # Insert new translation
+            logger.info(f"Inserting new {language_code} translation for timeline {timeline_id}")
+            response = supabase.table("timelines_int") \
+                .insert(insert_data) \
+                .execute()
+        
+        if getattr(response, 'error', None):
+            logger.error(f"Error saving {language_code} translation for timeline {timeline_id}: {response.error}")
+            return False
+            
+        logger.info(f"Successfully saved {language_code} translation for timeline {timeline_id}")
+        return True
+        
+    except APIError as e:
+        logger.error(f"APIError saving translated timeline: {e.message} - {e.details}")
+        return False
+    except Exception as e:
+        logger.error(f"Exception saving translated timeline for {timeline_id}: {e}")
+        return False
+
+async def get_untranslated_timelines(language_code: str = 'de') -> List[Dict]:
+    """
+    Fetch timelines that don't have a translation in the specified language.
+    Uses a left join to find English timelines without corresponding entries in timelines_int.
+    
+    Args:
+        language_code: The language code to check for translations (default: 'de')
+    
+    Returns:
+        List of timeline records (each containing id and timeline_data) that need translation
+    """
+    if not _check_supabase_client(): return []
+    try:
+        logger.info(f"Fetching timelines without {language_code} translations")
+        
+        # First get all timeline ids that already have translations for this language
+        translated_response = supabase.table("timelines_int") \
+            .select("timeline_id") \
+            .eq("language_code", language_code) \
+            .execute()
+            
+        if translated_response.data:
+            # Get IDs of already translated timelines
+            translated_ids = [item['timeline_id'] for item in translated_response.data]
+            
+            # Now get all timelines except those that already have translations
+            if translated_ids:
+                timelines_response = supabase.table("timelines") \
+                    .select("id, timeline_data") \
+                    .not_in("id", translated_ids) \
+                    .execute()
+            else:
+                # If no translations exist yet, get all timelines
+                timelines_response = supabase.table("timelines") \
+                    .select("id, timeline_data") \
+                    .execute()
+        else:
+            # If no translations exist yet, get all timelines
+            timelines_response = supabase.table("timelines") \
+                .select("id, timeline_data") \
+                .execute()
+                
+        logger.info(f"Found {len(timelines_response.data)} timelines without {language_code} translations")
+        return timelines_response.data if timelines_response.data else []
+        
+    except APIError as e:
+        logger.error(f"APIError fetching untranslated timelines: {e.message} - {e.details}")
+        return []
+    except Exception as e:
+        logger.error(f"Unexpected error fetching untranslated timelines: {e}")
+        return []
+
+# --- END: Timeline functions ---
+
+# --- START: Story Line View functions ---
+
+async def save_story_line_view(
+    cluster_id: Union[str, UUID],
+    viewpoint_name: str,
+    viewpoint_justification: str,
+    deep_dive_article: Dict[str, str]
+) -> bool:
+    """
+    Save a story line view (deep dive article) to the story_line_view table.
+    
+    Args:
+        cluster_id: The cluster ID this story line belongs to
+        viewpoint_name: The name of the viewpoint (e.g., "Economic Impact Analysis")
+        viewpoint_justification: The justification for why this viewpoint is relevant
+        deep_dive_article: Dict containing "headline", "introduction", "content", "bullet_points"
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    if not _check_supabase_client(): 
+        return False
+    
+    try:
+        # Extract content from the deep dive article
+        headline = deep_dive_article.get("headline", "")
+        content = deep_dive_article.get("article", "")  # Main article content
+        introduction = deep_dive_article.get("introduction", "")
+        
+        # Basic validation
+        if not all([headline, content, viewpoint_name]):
+            logger.error(f"Missing required data for story line view. headline: {bool(headline)}, content: {bool(content)}, viewpoint: {bool(viewpoint_name)}")
+            return False
+        
+        # Prepare data for insertion
+        insert_data = {
+            "cluster_id": str(cluster_id),
+            "view": viewpoint_name,
+            "justification": viewpoint_justification,
+            "headline": headline,
+            "introduction": introduction,
+            "content": content,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        logger.info(f"Saving story line view for cluster {cluster_id}, viewpoint: '{viewpoint_name}'")
+        
+        # Insert into database
+        response = supabase.table("story_line_view").insert(insert_data).execute()
+        
+        if getattr(response, 'error', None):
+            logger.error(f"Error saving story line view for cluster {cluster_id}: {response.error}")
+            return False
+            
+        logger.info(f"Successfully saved story line view for cluster {cluster_id}, viewpoint: '{viewpoint_name}'")
+        return True
+        
+    except APIError as e:
+        logger.error(f"APIError saving story line view: {e.message} - {e.details}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error saving story line view: {e}", exc_info=True)
+        return False
+
+
+async def save_multiple_story_line_views(
+    cluster_id: Union[str, UUID],
+    viewpoints: List[Dict],
+    deep_dive_articles: List[Dict[str, str]]
+) -> Dict[str, int]:
+    """
+    Save multiple story line views for a cluster.
+    
+    Args:
+        cluster_id: The cluster ID
+        viewpoints: List of viewpoint dicts with "name" and "justification"
+        deep_dive_articles: List of deep dive article dicts with "headline", "introduction", "content"
+    
+    Returns:
+        Dict with "total", "saved", "failed" counts
+    """
+    if not _check_supabase_client():
+        return {"total": 0, "saved": 0, "failed": 0}
+    
+    stats = {"total": len(viewpoints), "saved": 0, "failed": 0}
+    
+    if len(viewpoints) != len(deep_dive_articles):
+        logger.error(f"Mismatch between viewpoints ({len(viewpoints)}) and articles ({len(deep_dive_articles)}) for cluster {cluster_id}")
+        stats["failed"] = stats["total"]
+        return stats
+    
+    logger.info(f"Saving {stats['total']} story line views for cluster {cluster_id}")
+    
+    for viewpoint, article in zip(viewpoints, deep_dive_articles):
+        try:
+            success = await save_story_line_view(
+                cluster_id=cluster_id,
+                viewpoint_name=viewpoint.get("name", ""),
+                viewpoint_justification=viewpoint.get("justification", ""),
+                deep_dive_article=article
+            )
+            
+            if success:
+                stats["saved"] += 1
+            else:
+                stats["failed"] += 1
+                
+        except Exception as e:
+            logger.error(f"Exception saving individual story line view for viewpoint '{viewpoint.get('name')}': {e}")
+            stats["failed"] += 1
+    
+    logger.info(f"Story line view batch save complete for cluster {cluster_id}. Stats: {stats}")
+    return stats
+
+# --- END: Story Line View functions ---
+
+# --- START: Story Line View Internationalization functions ---
+
+async def get_untranslated_story_line_views(language_code: str = 'de') -> List[Dict]:
+    """
+    Retrieve story line views that don't have translations in the specified language.
+    
+    Args:
+        language_code: The language code to check for (default: 'de' for German)
+        
+    Returns:
+        List of story line view dictionaries that need translation
+    """
+    if not _check_supabase_client():
+        return []
+    
+    try:
+        # First get all translated story line view IDs for the specified language
+        translated_response = supabase.table("story_line_view_int") \
+            .select("story_line_view_id") \
+            .eq("language_code", language_code) \
+            .execute()
+            
+        translated_ids = [item['story_line_view_id'] for item in translated_response.data] if translated_response.data else []
+        
+        # Get story line views that are not in the translated list
+        if translated_ids:
+            response = supabase.table("story_line_view") \
+                .select("id, cluster_id, view, justification, headline, introduction, content") \
+                .not_.in_("id", translated_ids) \
+                .execute()
+        else:
+            # If no translations exist yet, get all story line views
+            response = supabase.table("story_line_view") \
+                .select("id, cluster_id, view, justification, headline, introduction, content") \
+                .execute()
+                
+        logger.info(f"Found {len(response.data)} story line views without {language_code} translations")
+        return response.data if response.data else []
+        
+    except APIError as e:
+        logger.error(f"APIError fetching untranslated story line views: {e.message} - {e.details}")
+        return []
+    except Exception as e:
+        logger.error(f"Unexpected error fetching untranslated story line views: {e}")
+        return []
+
+
+async def save_translated_story_line_view(
+    story_line_view_id: Union[str, UUID],
+    language_code: str,
+    translated_data: Dict[str, str]
+) -> bool:
+    """
+    Save a translated story line view to the story_line_view_int table.
+    
+    Args:
+        story_line_view_id: The ID of the original story line view
+        language_code: The language code (e.g., 'de' for German)
+        translated_data: Dict containing translated headline, content, introduction, view, justification
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    if not _check_supabase_client():
+        return False
+    
+    try:
+        # Prepare data for insertion
+        insert_data = {
+            "story_line_view_id": str(story_line_view_id),
+            "language_code": language_code,
+            "headline": translated_data.get("headline", ""),
+            "content": translated_data.get("content", ""),
+            "introduction": translated_data.get("introduction", ""),
+            "view": translated_data.get("view", ""),
+            "justification": translated_data.get("justification", ""),
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        logger.info(f"Saving {language_code} translation for story line view {story_line_view_id}")
+        
+        # Insert into database
+        response = supabase.table("story_line_view_int").insert(insert_data).execute()
+        
+        if getattr(response, 'error', None):
+            logger.error(f"Error saving translated story line view: {response.error}")
+            return False
+            
+        logger.info(f"Successfully saved {language_code} translation for story line view {story_line_view_id}")
+        return True
+        
+    except APIError as e:
+        logger.error(f"APIError saving translated story line view: {e.message} - {e.details}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error saving translated story line view: {e}", exc_info=True)
+        return False
+
+# --- END: Story Line View Internationalization functions ---
