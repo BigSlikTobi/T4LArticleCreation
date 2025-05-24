@@ -1,0 +1,33 @@
+name: Story Line Pipeline
+
+on:
+  schedule:
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  create-story-lines:
+    runs-on: ubuntu-latest
+    
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      Custom_Search_API_KEY: ${{ secrets.CUSTOM_SEARCH_API_KEY }}
+      GOOGLE_CUSTOM_SEARCH_ID: ${{ secrets.GOOGLE_CUSTOM_SEARCH_ID }}
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run story line pipeline
+      run: python story_lines/story_line_pipeline.py
