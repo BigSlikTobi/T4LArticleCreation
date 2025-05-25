@@ -380,19 +380,29 @@ async def fetch_clusters_to_process(status: str) -> List[Dict]:
 async def fetch_source_articles_for_cluster(cluster_id: Union[str, UUID]) -> List[Dict]:
     """
     Fetches source articles for a given cluster_id, ordered by creation date.
-    Ensures 'headline', 'Content', 'created_at', and source name are selected.
+    Ensures 'id', 'headline', 'Content', 'created_at', and source name are selected.
     Joins with NewsSource table to get the source name.
     """
     if not _check_supabase_client() or supabase is None:
         logger.error(f"Supabase client not initialized. Cannot fetch articles for cluster {cluster_id}.")
         return []
     try:
-        # Join with NewsSource table to get the source name
+        # Explicitly include id field in the select statement
+        logger.info(f"Fetching source articles for cluster: {cluster_id}")
         response = supabase.table("SourceArticles") \
-            .select("headline, Content, created_at, NewsSource(Name)") \
+            .select("id, headline, Content, created_at, NewsSource(Name)") \
             .eq("cluster_id", str(cluster_id)) \
             .order("created_at", desc=False) \
-            .execute() # Removed await
+            .execute()
+        
+        # Debug log to verify the structure
+        if response.data and len(response.data) > 0:
+            logger.info(f"Successfully fetched {len(response.data)} articles for cluster {cluster_id}")
+            logger.debug(f"First article keys: {list(response.data[0].keys())}")
+            logger.debug(f"First article ID: {response.data[0].get('id', 'ID_NOT_FOUND')}")
+        else:
+            logger.warning(f"No articles found for cluster {cluster_id}")
+            
         return response.data if response.data else []
     except APIError as e:
         logger.error(f"APIError fetching source articles for cluster {cluster_id}: {e.message} - {e.details}")

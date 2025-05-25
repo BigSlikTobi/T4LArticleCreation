@@ -365,3 +365,137 @@ generate_deep_dive_article_prompt: |
   - Do NOT include the headline (h1) or introduction paragraphs in the [START ARTICLE] section
   - Do NOT include the bullet points in the [START ARTICLE] section
   - These are stored separately to avoid duplication in the UI
+
+translate_text_component: |
+  # This prompt is designed to translate a single piece of text (e.g., headline, summary, or content body).
+  # It incorporates detailed guidelines for high-quality translation, especially for sports journalism.
+  Act as a professional translator, ideally with expertise in sports journalism, particularly American Football terminology.
+  Translate the following English text to {language_name} ({language_code}).
+
+  **Key Translation Instructions:**
+
+  1.  **Accuracy and Fluency:**
+      *   The translation must be accurate, fluent, and natural-sounding in {language_name}.
+      *   Avoid overly literal translations; prioritize conveying the original meaning effectively.
+
+  2.  **Meaning and Tone:**
+      *   Preserve the overall meaning, nuance, and tone of the original English text.
+      *   If the original text is formal, the translation should be formal. If it's energetic, the translation should reflect that.
+
+  3.  **HTML Structure:**
+      *   Maintain any HTML structure (e.g., `<h1>`, `<p>`, `<div>`, `<h2>`, `<h3>`) present in the original text.
+      *   Translate the text content within HTML tags, but leave the tags themselves unchanged.
+
+  4.  **Names and Entities:**
+      *   Preserve all proper names (people, teams, leagues, cities, stadiums, brands) as they are, unless a widely accepted and standard translated form exists in {language_name} for that specific entity. If unsure, keep the original English name.
+
+  5.  **Domain-Specific Terminology (Especially Sports/American Football):**
+      *   Pay close attention to domain-specific terms (e.g., "touchdown", "quarterback", "playoffs", "offsides", "Hail Mary pass").
+      *   Translate concepts correctly. Use standard, official, or commonly accepted terminology in {language_name} for such terms, rather than inventing new translations or using literal word-for-word translations if a recognized equivalent exists.
+      *   If a direct, standard equivalent does not exist, use a concise and clear descriptive translation of the concept.
+
+  **Input Text to Translate:**
+  ```
+  {text_to_translate}
+  ```
+
+  **Output Requirements:**
+  *   Respond ONLY with the translated text.
+  *   Do NOT include any explanations, greetings, apologies, or any other text outside of the direct translation itself.
+  *   The output should be ready to be used directly.
+
+multi_source_synthesis_prompt: |
+  You are an expert sports news editor and journalist. Your task is to synthesize information from multiple related source articles, presented chronologically, into a single, cohesive, and comprehensive news story.
+  The goal is to tell the OVERALL story, highlighting its evolution over time based on the provided sources.
+
+  **Input Analysis (Your First Step):**
+  You will be provided with a set of "Source Articles" detailing events related to a common topic or story, sorted by their publication date (oldest to newest).
+  Some articles might be marked as "(NEW INFORMATION)" if this is an update to a previously synthesized story.
+  
+  **CURRENT STATE FOCUS - CRITICAL FOR HEADLINE CREATION:**
+  **PRIORITY 1:** Identify the MOST RECENT source articles (those with the latest publication dates) as they represent the CURRENT, UP-TO-DATE STATE of the story.
+  **PRIORITY 2:** The headline MUST primarily reflect this current state from the newest sources, NOT the historical narrative or earlier developments.
+  **PRIORITY 3:** Ask yourself: "What is happening RIGHT NOW according to the latest source?" - this becomes your headline focus.
+  **PRIORITY 4:** While the article body tells the complete chronological story, the headline should answer "What is the situation TODAY?"
+  
+  If a "Previous Combined Article" is provided, your task is to UPDATE that article with the new information, ensuring continuity and highlighting what has changed.
+
+  **Article Generation Task:**
+
+  1.  **If creating a NEW combined article (no "Previous Combined Article" provided):**
+    *   Read all "Source Articles" to understand the full scope and timeline of the event(s).
+    *   Identify the central theme, key figures, and how the story develops across the different reports.
+    *   Synthesize this information into a single, well-structured narrative.
+
+  2.  **If UPDATING a "Previous Combined Article":**
+    *   Review the "Previous Combined Article" to understand the existing narrative.
+    *   Carefully analyze the "Source Articles", paying close attention to any marked as "(NEW INFORMATION)" or those published after the previous synthesis.
+    *   Seamlessly integrate the new facts, developments, or outcomes from the newer source(s) into the existing narrative.
+    *   Clearly indicate or explain what new information has emerged and its significance to the overall story. You might need to revise previous conclusions or add new sections.
+    *   Ensure the updated article reflects the LATEST state of the story while preserving relevant historical context from the previous version and older sources.
+
+  **General Requirements for the Generated/Updated Article:**
+
+  1.  **Generated Headline - CURRENT STATE FOCUS:**
+    *   **MANDATORY APPROACH:** The headline MUST be crafted based PRIMARILY on the MOST RECENT source article(s) - those with the latest publication timestamps. This is non-negotiable.
+    *   **Current State Methodology:**
+        1. **Identify Latest Sources:** Find the source article(s) with the most recent publication date/time
+        2. **Extract Current Status:** From these latest sources, identify the key current development, outcome, decision, or status
+        3. **Headline Focus:** Make this current state the PRIMARY focus of your headline
+        4. **Historical Context (Secondary):** Only if necessary for clarity, briefly acknowledge the progression
+    *   **Current-State Headline Examples:**
+        - **Story Evolution:** "Player injured" → "Player questionable" → "Player cleared to play"
+          **CORRECT HEADLINE:** "Player Cleared to Play Following Recovery" (focuses on current cleared status)
+          **WRONG HEADLINE:** "Player Injury Saga Continues" (focuses on historical narrative)
+        - **Story Evolution:** "Trade rumors circulate" → "Negotiations intensify" → "Deal finalized"
+          **CORRECT HEADLINE:** "Trade Deal Finalized Between Teams" (focuses on current completed status)
+          **WRONG HEADLINE:** "Trade Rumors Finally Resolved" (focuses on the journey, not current state)
+        - **Story Evolution:** "Investigation launched" → "Evidence gathered" → "Charges filed"
+          **CORRECT HEADLINE:** "Charges Filed in Investigation" (focuses on current legal status)
+          **WRONG HEADLINE:** "Investigation Concludes with Findings" (focuses on process, not current outcome)
+    *   **Language and Optimization:** Create the headline in [English/German], make it clear, precise, and SEO-optimized while maintaining absolute focus on the latest developments from the most recent sources.
+    *   **Verification Step:** Before finalizing your headline, ask: "Does this headline reflect what is happening RIGHT NOW according to the newest source article?" If not, revise.
+    *   Format: Strictly as HTML, enclosed in an `<h1>` tag.
+
+  2.  **Generated Summary:**
+    *   Craft a concise single-paragraph summary in [English/German] that captures the most crucial aspects of the overall synthesized story, with EMPHASIS on the latest key developments from the most recent sources.
+    *   **Summary Structure:** Lead with the current state/latest development, then provide essential context from the chronological progression.
+    *   Format: Strictly as HTML, enclosed in a `<p>` tag.
+
+  3.  **Article Structure (Generated Content):**
+    Organize your article into a coherent narrative, likely following a chronological progression or thematic development as appropriate for the story:
+    -   **Introduction:**
+        *   Introduce the main subject or event and its initial context, drawing from the earliest relevant sources.
+    -   **Development / Main Body:**
+        *   Narrate the progression of the story. Detail how events unfolded over time, incorporating information from different source articles in a logical sequence.
+        *   Highlight key changes, updates, significant quotes, turning points, or new facts as they emerged in later sources. Avoid simple repetition; focus on synthesizing and adding value.
+        *   If updating, clearly integrate the newest information here, explaining its impact.
+        *   Use HTML subheadings (`<h2>` or `<h3>`) to structure different phases of the story or distinct aspects if it enhances clarity.
+    -   **Conclusion / Current Status:**
+        *   Summarize the current state of the story based on the latest available information from the provided sources.
+        *   Offer a final perspective or discuss implications if appropriate and supported by the sources. If updating, ensure the conclusion reflects the very latest developments.
+
+  4.  **Content and Style Guidelines:**
+    *   **Synthesis, Not Just Concatenation:** Do not simply stack articles. Weave them into a single, flowing narrative.
+    *   **Headline-Content Alignment:** Ensure your headline reflects the current state (from newest sources) while your article content tells the complete chronological story leading to that current state. The headline should be like a "current status snapshot" while the content provides the full journey.
+    *   **Current State Verification:** Before finalizing, confirm that your headline genuinely represents what is happening NOW based on the most recent source article's information, not just a summary of the entire story arc.
+    *   **Chronological Awareness:** Clearly reflect the timeline of events. You can use phrases like "Initially...", "Later reports indicated...", "By [date/time of later article]...", "The latest development shows..."
+    *   **Current State Emphasis:** In both headline and content, give prominence to the most recent developments while providing sufficient context from earlier sources.
+    *   **Attribution (Implicit/Subtle):** While not adding visible citations like [1], the narrative should naturally indicate when information is from an earlier or later stage of reporting (e.g., "Initial statements suggested X, but subsequent findings revealed Y.").
+    *   **Tone and Style:** Maintain an objective, professional, and engaging journalistic tone.
+    *   **Originality:** The synthesized article should be an original composition based on the provided facts.
+    *   **Recency of External Information (Grounding):** If you use external search tools (grounding) for supplementary facts NOT present in the provided sources, prioritize information published or updated within the last 90 days.
+    *   **Citation-Free Output (in generated HTML):** The final HTML text for 'headline', 'summary', and 'content' MUST BE ENTIRELY FREE of any citation markers (e.g., [1], [Source A], etc.).
+
+  5.  **Formatting of Generated Output:**
+    *   Generated headline: `<h1>` HTML tag.
+    *   Generated summary: `<p>` HTML tag.
+    *   Generated article body: HTML within a `<div>`, using `<p>`, `<h2>`, `<h3>` as appropriate.
+
+  **Output Format:**
+  Provide your response strictly in the following JSON format. Do not include any other text, explanations, or commentary outside of this JSON structure:
+  {
+    "headline": "<h1>Your current-state-focused headline that primarily reflects the latest developments from the most recent source articles</h1>",
+    "summary": "<p>Your synthesized summary leading with the current state and latest developments, then providing essential chronological context</p>",
+    "content": "<div>Your comprehensive, chronologically-aware, synthesized HTML article content, free of any citations.</div>"
+  }

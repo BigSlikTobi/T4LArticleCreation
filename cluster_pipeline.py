@@ -16,7 +16,7 @@ logging.basicConfig(
 )
 
 # Define target languages for the pipeline
-TARGET_TRANSLATION_LANGUAGES = ["de"] # Example: German. Add more codes like "es", "fr"
+TARGET_TRANSLATION_LANGUAGES = ["de"] # German, Spanish, French translations
 
 async def process_single_cluster(
     cluster_id: str,
@@ -32,7 +32,18 @@ async def process_single_cluster(
         return
 
     logger.info(f"Found {len(source_articles)} source articles for cluster {cluster_id}.")
-    source_article_db_ids = [sa['id'] for sa in source_articles]
+    # Add debug logging to see article structure
+    logger.debug(f"First article structure: {source_articles[0] if source_articles else 'No articles'}")
+    logger.debug(f"Article keys: {source_articles[0].keys() if source_articles else 'No articles'}")
+    
+    # Fix the issue by using correct keys or handling missing keys
+    source_article_db_ids = []
+    for sa in source_articles:
+        # Look for alternative ID fields or handle missing ID
+        if 'id' in sa:
+            source_article_db_ids.append(sa['id'])
+        else:
+            logger.warning(f"Source article missing 'id' field. Available keys: {sa.keys()}")
 
     synthesized_english_data: Optional[Dict] = None # Will hold the English synthesized content
     processed_cluster_article_id: Optional[UUID] = None 
@@ -44,6 +55,16 @@ async def process_single_cluster(
             source_articles_data=source_articles,
             language=language # Should be 'English'
         )
+        
+        # Validate parsing success
+        validation_result = validate_parsing_success(synthesized_english_data)
+        logger.info(f"Article generation validation for cluster {cluster_id}: "
+                   f"Success={validation_result['success']}, Method={validation_result['parsing_method']}, "
+                   f"Issues={len(validation_result['issues'])}")
+        
+        if validation_result['issues']:
+            logger.warning(f"Validation issues for cluster {cluster_id}: {validation_result['issues']}")
+        
         if synthesized_english_data and synthesized_english_data.get('headline') and synthesized_english_data.get('content'):
             new_ca_id = await database.insert_cluster_article(
                 cluster_id=cluster_id,
@@ -94,6 +115,16 @@ async def process_single_cluster(
                 previous_combined_article_data=existing_synthesized_article_db_data,
                 language=language
             )
+            
+            # Validate parsing success for update
+            validation_result = validate_parsing_success(synthesized_english_data)
+            logger.info(f"Article update validation for cluster {cluster_id}: "
+                       f"Success={validation_result['success']}, Method={validation_result['parsing_method']}, "
+                       f"Issues={len(validation_result['issues'])}")
+            
+            if validation_result['issues']:
+                logger.warning(f"Update validation issues for cluster {cluster_id}: {validation_result['issues']}")
+            
             if synthesized_english_data and synthesized_english_data.get('headline') and synthesized_english_data.get('content'):
                 success = await database.update_cluster_article(
                     cluster_article_id=processed_cluster_article_id,
@@ -151,6 +182,63 @@ async def process_single_cluster(
     elif not processed_cluster_article_id:
         logger.error(f"Skipping image/translation and finalization for cluster {cluster_id} due to earlier text processing failure.")
 
+def validate_parsing_success(article_data: Dict) -> Dict[str, any]:
+    """
+    Validates the success of article parsing and returns metrics.
+    Helps monitor the effectiveness of JSON parsing fixes.
+    """
+    validation_result = {
+        "success": False,
+        "has_headline": False,
+        "has_summary": False, 
+        "has_content": False,
+        "parsing_method": "unknown",
+        "issues": []
+    }
+    
+    # Check basic structure
+    if not article_data:
+        validation_result["issues"].append("Empty article data")
+        return validation_result
+        
+    # Check required fields
+    headline = article_data.get("headline", "").strip()
+    summary = article_data.get("summary", "").strip()
+    content = article_data.get("content", "").strip()
+    
+    validation_result["has_headline"] = bool(headline)
+    validation_result["has_summary"] = bool(summary)
+    validation_result["has_content"] = bool(content)
+    
+    # Determine parsing method used
+    if "parsing_error" in article_data:
+        if "progressive parsing" in article_data["parsing_error"]:
+            validation_result["parsing_method"] = "progressive"
+        elif "enhanced fallback" in article_data["parsing_error"]:
+            validation_result["parsing_method"] = "regex_fallback"
+        else:
+            validation_result["parsing_method"] = "basic_fallback"
+        validation_result["issues"].append(f"Parsing error: {article_data['parsing_error']}")
+    else:
+        validation_result["parsing_method"] = "normal_json"
+    
+    # Check content quality
+    if headline and len(headline) < 10:
+        validation_result["issues"].append("Headline too short")
+    if summary and len(summary) < 20:
+        validation_result["issues"].append("Summary too short")
+    if content and len(content) < 50:
+        validation_result["issues"].append("Content too short")
+        
+    # Overall success determination
+    validation_result["success"] = (
+        validation_result["has_headline"] and 
+        validation_result["has_summary"] and 
+        validation_result["has_content"] and
+        len(validation_result["issues"]) <= 1  # Allow parsing method issues but not content issues
+    )
+    
+    return validation_result
 
 async def run_cluster_processing_pipeline():
     logger.info("Starting Cluster Processing Pipeline...")

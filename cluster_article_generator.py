@@ -48,6 +48,11 @@ def format_source_articles_for_prompt(
     """
     formatted_articles = []
     previous_source_ids_set = set(previous_source_ids) if previous_source_ids else set()
+    
+    print(f"DEBUG: Formatting {len(source_articles_data)} source articles for prompt")
+    if source_articles_data:
+        print(f"DEBUG: First article keys: {list(source_articles_data[0].keys())}")
+        print(f"DEBUG: First article ID type: {type(source_articles_data[0].get('id', 'NO_ID'))}")
 
     for article in source_articles_data:
         content = article.get('Content', article.get('content', '')) 
@@ -119,6 +124,7 @@ async def generate_cluster_article(
     raw_response_text = ""
     try:
         print(f"Cluster Article Generator: Calling Gemini for synthesis. Input content length (approx sources + prev): {len(prompt_input_content)}")
+        print(f"DEBUG: Full prompt length: {len(full_prompt)} characters")
         
         # Corrected API call: tools go inside GenerateContentConfig
         response_obj = await asyncio.to_thread(
@@ -135,6 +141,8 @@ async def generate_cluster_article(
 
         if response_obj and hasattr(response_obj, 'text'):
             raw_response_text = response_obj.text
+            print(f"DEBUG: Raw response length: {len(raw_response_text)} characters")
+            print(f"DEBUG: Response ends with: '{raw_response_text[-100:]}'")
         else:
             print("Error (Cluster Article): Gemini API response object or text attribute is missing.")
             raw_response_text = ""
@@ -153,6 +161,7 @@ async def generate_cluster_article(
     else:
         cleaned_response_str = raw_response_text.strip()
 
+    # Enhanced JSON boundary detection
     json_start = cleaned_response_str.find("{")
     json_end = cleaned_response_str.rfind("}") + 1
 
@@ -160,11 +169,23 @@ async def generate_cluster_article(
         json_str = cleaned_response_str[json_start:json_end]
     else:
         print(f"Warning (Cluster Article): Could not find valid JSON object boundaries in response. Raw: {cleaned_response_str[:500]}")
-        match = re.search(r'\{[\s\S]*\}', cleaned_response_str)
-        if match:
-            json_str = match.group(0)
-        else:
-            json_str = cleaned_response_str 
+        # Try multiple strategies to find JSON-like content
+        strategies = [
+            # Strategy 1: Look for any JSON object
+            r'\{[\s\S]*\}',
+            # Strategy 2: Look for JSON starting with expected fields
+            r'\{\s*"(?:headline|title|summary|content)"[\s\S]*',
+            # Strategy 3: Look for partial JSON content
+            r'\{[^{}]*"(?:headline|title|summary|content)"[^{}]*',
+        ]
+        
+        json_str = cleaned_response_str
+        for strategy in strategies:
+            match = re.search(strategy, cleaned_response_str, re.MULTILINE | re.DOTALL)
+            if match:
+                json_str = match.group(0)
+                print(f"Found JSON using strategy: {strategy[:30]}...")
+                break 
 
     try:
         data = json.loads(json_str)
@@ -176,21 +197,84 @@ async def generate_cluster_article(
         }
     except json.JSONDecodeError as e:
         print(f"Error parsing JSON response from cluster synthesis: {e}. Response: {json_str[:500]}...")
+        
+        # Enhanced fallback parsing with multiple strategies
+        def robust_extract_field(text: str, field_name: str) -> str:
+            """Extract field using multiple regex patterns for robustness"""
+            patterns = [
+                # Standard quoted field
+                rf'"{field_name}"\s*:\s*"(.*?)"(?=\s*[,\}}])',
+                # Field with escaped quotes
+                rf'"{field_name}"\s*:\s*"((?:[^"\\]|\\.)*)"\s*[,\}}]',
+                # Field at end of truncated JSON
+                rf'"{field_name}"\s*:\s*"((?:[^"\\]|\\.)*?)(?:"|\s*$)',
+                # Field with unescaped newlines (fallback)
+                rf'"{field_name}"\s*:\s*"([^"]*)"',
+                # Field without closing quote (truncated)
+                rf'"{field_name}"\s*:\s*"([^"]*?)(?:\s*$)',
+            ]
+            
+            for pattern in patterns:
+                match = re.search(pattern, text, re.DOTALL | re.MULTILINE)
+                if match:
+                    result = match.group(1)
+                    # Clean up common escape sequences
+                    result = result.replace('\\"', '"').replace('\\n', '\n').replace('\\\\', '\\')
+                    return result
+            return ""
+
         try:
-            headline = re.search(r'"headline"\s*:\s*"(.*?)"', json_str, re.DOTALL)
-            summary = re.search(r'"summary"\s*:\s*"(.*?)"', json_str, re.DOTALL)
-            content = re.search(r'"content"\s*:\s*"(.*?)"\s*\}', json_str, re.DOTALL) 
+            # Try progressive JSON parsing for partial content
+            progressive_json = None
+            if json_str.strip().endswith(','):
+                # Attempt to close truncated JSON
+                test_json = json_str.rstrip(', \t\n') + '}'
+                try:
+                    progressive_json = json.loads(test_json)
+                except:
+                    pass
+            
+            if progressive_json:
+                return {
+                    "headline": remove_citations_from_text(progressive_json.get("headline", "")),
+                    "summary": remove_citations_from_text(progressive_json.get("summary", "")),
+                    "content": remove_citations_from_text(progressive_json.get("content", "")),
+                    "raw_response_text": raw_response_text, 
+                    "parsing_error": f"JSONDecodeError, used progressive parsing. Original error: {str(e)}"
+                }
+            
+            # Fallback to regex extraction
+            headline = robust_extract_field(json_str, "headline")
+            summary = robust_extract_field(json_str, "summary") 
+            content = robust_extract_field(json_str, "content")
+            
+            # Validate we got meaningful content
+            if not any([headline, summary, content]):
+                # Try alternative field names or structures
+                headline = robust_extract_field(json_str, "title") or robust_extract_field(json_str, "headline")
+                summary = robust_extract_field(json_str, "abstract") or robust_extract_field(json_str, "summary")
+                content = robust_extract_field(json_str, "article") or robust_extract_field(json_str, "content") or robust_extract_field(json_str, "body")
 
             return {
-                "headline": remove_citations_from_text(headline.group(1).replace('\\"', '"').replace('\\n', '\n') if headline else ""),
-                "summary": remove_citations_from_text(summary.group(1).replace('\\"', '"').replace('\\n', '\n') if summary else ""),
-                "content": remove_citations_from_text(content.group(1).replace('\\"', '"').replace('\\n', '\n') if content else ""),
+                "headline": remove_citations_from_text(headline),
+                "summary": remove_citations_from_text(summary),
+                "content": remove_citations_from_text(content),
                 "raw_response_text": raw_response_text, 
-                "parsing_error": f"JSONDecodeError, used fallback. Original error: {str(e)}"
+                "parsing_error": f"JSONDecodeError, used enhanced fallback. Original error: {str(e)}"
             }
         except Exception as fallback_e:
-            print(f"Fallback JSON parsing also failed: {fallback_e}")
-            return {"raw_response_text": raw_response_text, "parsing_error": f"Fallback parsing failed. Original error: {str(e)} Fallback error: {str(fallback_e)}"}
+            print(f"Enhanced fallback JSON parsing also failed: {fallback_e}")
+            # Last resort: try to extract any meaningful text
+            text_content = re.sub(r'[{}",:]+', ' ', json_str)
+            text_content = ' '.join(text_content.split())
+            
+            return {
+                "headline": "Content extraction failed", 
+                "summary": "Unable to parse response",
+                "content": text_content[:500] if text_content else "No content extracted",
+                "raw_response_text": raw_response_text, 
+                "parsing_error": f"All parsing failed. Original: {str(e)}, Fallback: {str(fallback_e)}"
+            }
     except Exception as ex:
         print(f"An unexpected error occurred during cluster article processing: {ex}")
         return {"raw_response_text": raw_response_text, "processing_error": str(ex)}
