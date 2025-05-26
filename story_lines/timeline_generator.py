@@ -208,7 +208,7 @@ async def main():
     results = []
     for cluster_id in cluster_ids_list:
         if cluster_id:
-            result = await generate_story_line_for_cluster(cluster_id)
+            result = await generate_timeline_for_cluster(cluster_id)
             if result[0]:  # If timeline_id is not None
                 results.append(result)
         else:
