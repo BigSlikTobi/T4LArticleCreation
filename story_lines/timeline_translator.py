@@ -177,11 +177,15 @@ async def translate_timeline(timeline_id: Union[str, UUID], timeline_data: Dict,
     try:
         translated_timeline = await translate_timeline_with_llm(timeline_data, language_code)
         
+        # Extract cluster_id from timeline_data to pass to save function
+        cluster_id = timeline_data.get("cluster_id")
+        
         # Save the translated timeline to the database
         translation_success = await save_translated_timeline(
             timeline_id=timeline_id,
             language_code=language_code,
-            translated_data=translated_timeline
+            translated_data=translated_timeline,
+            cluster_id=cluster_id  # Pass cluster_id to the save function
         )
         
         if not translation_success:

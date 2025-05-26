@@ -664,6 +664,7 @@ async def save_timeline_to_database(cluster_id: Union[str, UUID], timeline_entri
         
         insert_data = {
             "id": timeline_id,
+            "cluster_id": str(cluster_id),  # Add cluster_id as separate column
             "timeline_data": timeline_with_metadata
         }
         
@@ -683,7 +684,7 @@ async def save_timeline_to_database(cluster_id: Union[str, UUID], timeline_entri
         return False
 
 
-async def save_translated_timeline(timeline_id: Union[str, UUID], language_code: str, translated_data: Dict) -> bool:
+async def save_translated_timeline(timeline_id: Union[str, UUID], language_code: str, translated_data: Dict, cluster_id: Union[str, UUID] = None) -> bool:
     """
     Save translated timeline data to the timelines_int table.
     
@@ -691,6 +692,7 @@ async def save_translated_timeline(timeline_id: Union[str, UUID], language_code:
         timeline_id: The ID of the timeline in the timelines table
         language_code: The language code (e.g., 'de')
         translated_data: The translated timeline data
+        cluster_id: The cluster ID (optional - will be extracted from timeline if not provided)
     
     Returns:
         bool: True if successful, False otherwise
@@ -698,12 +700,40 @@ async def save_translated_timeline(timeline_id: Union[str, UUID], language_code:
     if not _check_supabase_client(): return False
     
     try:
+        # If cluster_id is not provided, try to extract it from the original timeline
+        if cluster_id is None:
+            try:
+                timeline_response = supabase.table("timelines") \
+                    .select("cluster_id, timeline_data") \
+                    .eq("id", str(timeline_id)) \
+                    .execute()
+                
+                if timeline_response.data and len(timeline_response.data) > 0:
+                    timeline_record = timeline_response.data[0]
+                    # Try to get cluster_id from the separate column first
+                    cluster_id = timeline_record.get('cluster_id')
+                    
+                    # If not found in column, try to extract from timeline_data JSONB
+                    if not cluster_id and timeline_record.get('timeline_data'):
+                        # Handle both formats - direct key or nested in the timeline_data
+                        if isinstance(timeline_record['timeline_data'], dict):
+                            cluster_id = timeline_record['timeline_data'].get('cluster_id')
+                        
+                if not cluster_id:
+                    logger.warning(f"Could not determine cluster_id for timeline {timeline_id}")
+            except Exception as e:
+                logger.warning(f"Failed to extract cluster_id for timeline {timeline_id}: {e}")
+        
         # Prepare insert data
         insert_data = {
             "timeline_id": str(timeline_id),
             "language_code": language_code,
             "timeline_data": translated_data
         }
+        
+        # Add cluster_id if available
+        if cluster_id:
+            insert_data["cluster_id"] = str(cluster_id)
         
         # Check if a translation already exists and update it if it does
         check_response = supabase.table("timelines_int") \
@@ -717,8 +747,12 @@ async def save_translated_timeline(timeline_id: Union[str, UUID], language_code:
             existing_id = check_response.data[0]["id"]
             logger.info(f"Updating existing {language_code} translation for timeline {timeline_id}")
             
+            update_data = {"timeline_data": translated_data}
+            if cluster_id:
+                update_data["cluster_id"] = str(cluster_id)
+            
             response = supabase.table("timelines_int") \
-                .update({"timeline_data": translated_data}) \
+                .update(update_data) \
                 .eq("id", existing_id) \
                 .execute()
         else:
