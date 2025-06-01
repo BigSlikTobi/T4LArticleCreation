@@ -1,5 +1,7 @@
 # Project Overview
 
+Tackle4LossArticleCreation is part 3 of the Tackle4Loss Projext that gathers extracts, **enriches** and publicates American Football News an Tackle4Loss.com.
+
 This project is an automated pipeline that fetches raw article data, processes it using AI, and stores enriched articles. The key technologies used are Python, Supabase for the database, and Google GenAI for content generation and processing.
 
 # Features
