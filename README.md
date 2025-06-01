@@ -1,4 +1,5 @@
-# Project Overview
+# Overview
+##### Tackle4LossArticleCreation is part 3 of the Tackle4Loss Projext that gathers extracts, **enriches** and publicates American Football News an Tackle4Loss.com.
 
 **Tackle4LossArticleCreation** is an automated pipeline designed to gather, enrich, and prepare American Football news articles for publication on Tackle4Loss.com. The core goal is to transform raw article data into comprehensive, multilingual content ready for readers.
 
