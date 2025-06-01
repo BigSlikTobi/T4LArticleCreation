@@ -1,4 +1,4 @@
-# Overview
+## Overview
 ##### Tackle4LossArticleCreation is part 3 of the Tackle4Loss Projext that gathers extracts, **enriches** and publicates American Football News an Tackle4Loss.com.
 
 **Tackle4LossArticleCreation** is an automated pipeline designed to gather, enrich, and prepare American Football news articles for publication on Tackle4Loss.com. The core goal is to transform raw article data into comprehensive, multilingual content ready for readers.
@@ -14,7 +14,7 @@ The automated process involves:
 
 Key technologies leveraged in this project include Python for scripting and orchestration, Supabase (PostgreSQL) for data storage, and Google GenAI for advanced content processing and generation.
 
-# Features
+## Features
 
 *   **Automated Article Fetching:** The system automatically fetches new articles from configured sources.
 *   **Article Processing Pipeline:**
@@ -27,26 +27,26 @@ Key technologies leveraged in this project include Python for scripting and orch
 *   **Data Storage:** Uses Supabase to store both raw and enriched article data.
 *   **Scalable Architecture:** Designed to handle a growing volume of articles and data processing tasks.
 
-# Module Structure and Key Components
+## Module Structure and Key Components
 
 The project is organized into several key modules and components, each responsible for specific aspects of the article processing and generation workflow:
 
-## Core Pipeline Orchestration
+### Core Pipeline Orchestration
 *   **`pipeline.py`**: The main orchestrator for the primary article creation pipeline. It coordinates the sequence of operations from fetching raw articles from Supabase, invoking AI enrichment modules, to storing the processed articles back in the database.
 *   **`cluster_pipeline.py`**: Orchestrates the workflow for generating articles based on clusters of information or topics.
 *   **`.github/workflows/`**: Contains GitHub Actions workflow files (e.g., `article-creation.yml`) that automate the execution of pipelines on a schedule or via manual triggers.
 
-## AI & Enrichment Modules
+### AI & Enrichment Modules
 *   **`LLMSetup.py`**: Crucial for configuring and initializing the Google GenAI (Gemini models). It handles API key setup and model selection (e.g., default, lite, flash models) and configures grounding capabilities.
 *   **`englishArticle.py`**: Responsible for generating the English version of articles using GenAI models. It takes raw content and transforms it into structured article format (headline, summary, body) based on prompts from `prompts.yml`.
 *   **`germanArticle.py`**: Translates the generated English articles into German, again utilizing GenAI models and prompts from `prompts.yml`.
 *   **`articleImage.py`**: Searches for and selects relevant images for articles. It uses Google Custom Search (configured with `Custom_Search_API_KEY` and `GOOGLE_CUSTOM_SEARCH_ID`) and may employ AI for ranking or relevance checking.
 *   **`team_classifier.py`**: Classifies articles by American Football teams based on their content (headline and body). This helps in categorizing and tagging articles appropriately.
 
-## Data Management
+### Data Management
 *   **`database.py`**: A centralized module for all database interactions with Supabase (PostgreSQL). It abstracts functions for fetching unprocessed articles, inserting processed articles, marking articles as processed, fetching team data, etc.
 
-## Specialized Content Pipelines (`story_lines/` directory)
+### Specialized Content Pipelines (`story_lines/` directory)
 This directory contains modules for generating more in-depth and structured content based on existing articles or topics.
 *   **`story_lines/story_line_pipeline.py`**: The main orchestrator for the story line generation process.
 *   **`story_lines/article_fetcher.py`**: Fetches articles relevant to specific story lines or topics.
@@ -58,18 +58,18 @@ This directory contains modules for generating more in-depth and structured cont
 *   **`story_lines/viewpoint_generator.py`**: Generates articles presenting different viewpoints on a subject.
 *   **`story_lines/story_line_writer.py`**: Assists in writing or structuring story lines.
 
-## Configuration Files
+### Configuration Files
 *   **`prompts.yml`**: A YAML configuration file that stores all the prompts used to interact with the GenAI models for various tasks like article generation, translation, summarization, image search queries, and team classification. This allows for easy modification and management of AI instructions without code changes.
 *   **`.env` (file - user created)**: Used to store sensitive credentials and environment-specific configurations like API keys and database URLs. Details on variables are in the "Setup and Installation" section.
 
-## Utilities (`ArticleUpdates/` directory)
+### Utilities (`ArticleUpdates/` directory)
 *   This directory contains various utility scripts for batch updates, data maintenance, or specific administrative tasks on the article data in Supabase (e.g., `batch_team_classifier.py`, `update_article_status.py`). These are typically run manually as needed.
 
-# High-Level Workflow
+## High-Level Workflow
 
 This section outlines the typical data flow and processing steps within the project's main pipelines.
 
-## Main Article Creation Workflow (`pipeline.py`)
+### Main Article Creation Workflow (`pipeline.py`)
 
 The primary goal of this workflow is to take raw article information and transform it into enriched, multilingual content ready for use. The process is as follows:
 
@@ -84,7 +84,7 @@ The primary goal of this workflow is to take raw article information and transfo
 
 This entire sequence is orchestrated by `pipeline.py` and can be run manually or automatically via GitHub Actions (see "Running the Pipelines" section).
 
-## Story Lines Content Workflow (`story_lines/`)
+### Story Lines Content Workflow (`story_lines/`)
 
 The modules within the `story_lines/` directory facilitate the creation of more specialized and in-depth content, such as:
 
@@ -100,7 +100,7 @@ The general workflow for these often involves:
 
 These workflows are typically orchestrated by scripts like `story_lines/story_line_pipeline.py` or more specific pipeline scripts within the directory.
 
-# Setup and Installation
+## Setup and Installation
 
 1.  **Clone the repository:**
     Replace `<repository_url>` with the actual URL of the repository.
@@ -142,11 +142,11 @@ These workflows are typically orchestrated by scripts like `story_lines/story_li
     *   Create a new project on Supabase.
     *   Ensure your Supabase database schema is set up. If schema migration scripts are provided in the repository, run them as per their instructions.
 
-# Running the Pipelines
+## Running the Pipelines
 
 This project contains several pipelines for different data processing tasks. Ensure you have completed the setup steps, including environment variable configuration, before running any pipeline.
 
-## Main Article Creation Pipeline
+### Main Article Creation Pipeline
 
 This is the primary workflow for fetching, enriching, and storing articles.
 
@@ -163,7 +163,7 @@ This is the primary workflow for fetching, enriching, and storing articles.
     *   **Manual Trigger:** You can also manually trigger this workflow from the "Actions" tab of the GitHub repository.
     This automated setup ensures continuous processing of new articles.
 
-## Cluster Article Generation Pipeline
+### Cluster Article Generation Pipeline
 
 This pipeline appears to handle the generation of articles based on clusters.
 
@@ -173,7 +173,7 @@ This pipeline appears to handle the generation of articles based on clusters.
     python cluster_pipeline.py
     ```
 
-## Story Line Pipeline
+### Story Line Pipeline
 
 This pipeline is responsible for tasks related to story line generation, including fetching articles, generating deep dives, timelines, and viewpoints.
 
@@ -184,22 +184,22 @@ This pipeline is responsible for tasks related to story line generation, includi
     ```
     There are also more specific scripts within the `story_lines` directory (e.g., `deep_dive_pipeline.py`) that might be run for more granular tasks.
 
-## Utility Scripts
+### Utility Scripts
 
 *   Scripts within the `ArticleUpdates/` directory are generally intended for specific batch updates or maintenance tasks. Refer to comments within these scripts for usage instructions if needed.
 
-# Error Handling and Logging
+## Error Handling and Logging
 
 *   The system implements robust error handling to manage issues during article fetching or AI processing.
 *   Logs are generated and can be configured via the `LOG_LEVEL` environment variable.
 *   Check the default `logs/` directory (or as configured) for detailed log files.
 
-# Contributing
+## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
 Please make sure to update tests as appropriate.
 
-# License
+## License
 
 This project is licensed under the MIT License.
