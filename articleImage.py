@@ -420,11 +420,9 @@ class ImageSearcher:
             try:
                 timeout = aiohttp.ClientTimeout(total=10)  # 10 second timeout
                 
-                # Create a context that doesn't verify SSL certificates if needed
-                # This isn't ideal for security but helps overcome certificate issues
+                # Create a secure SSL context with proper certificate verification
+                # Using certifi.where() to locate trusted CA certificates
                 ssl_context = ssl.create_default_context(cafile=certifi.where())
-                ssl_context.check_hostname = False
-                ssl_context.verify_mode = ssl.CERT_NONE
                 
                 connector = aiohttp.TCPConnector(ssl=ssl_context)
                 
@@ -462,6 +460,10 @@ class ImageSearcher:
                             
                         print(f"Successfully downloaded {len(image_data)} bytes from {url}")
                         return image_data
+            except ssl.SSLError as ssl_err:
+                print(f"SSL certificate verification failed for {url}: {str(ssl_err)}")
+                print("This could indicate an invalid or untrusted SSL certificate. For security reasons, we won't proceed with this URL.")
+                raise Exception(f"SSL certificate verification failed: {str(ssl_err)}")
             except Exception as e:
                 print(f"Error downloading image from {url}: {str(e)}")
                 if retry_count < max_retries:
