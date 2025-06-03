@@ -463,7 +463,7 @@ class ImageSearcher:
             except ssl.SSLError as ssl_err:
                 print(f"SSL certificate verification failed for {url}: {str(ssl_err)}")
                 print("This could indicate an invalid or untrusted SSL certificate. For security reasons, we won't proceed with this URL.")
-                raise Exception(f"SSL certificate verification failed: {str(ssl_err)}")
+                raise SSLVerificationError(f"SSL certificate verification failed: {str(ssl_err)}")
             except Exception as e:
                 print(f"Error downloading image from {url}: {str(e)}")
                 if retry_count < max_retries:
