@@ -990,8 +990,6 @@ async def get_untranslated_timelines(language_code: str = 'de') -> List[Dict]:
         logger.error(f"Unexpected error fetching untranslated timelines: {e}")
         return []
 
-# --- END: Timeline functions ---
-
 # --- START: Story Line View functions ---
 
 async def save_story_line_view(
@@ -1206,3 +1204,111 @@ async def save_translated_story_line_view(
         return False
 
 # --- END: Story Line View Internationalization functions ---
+
+# --- BEGIN: Image Metadata Storage functions ---
+
+async def save_cluster_image_metadata(cluster_id: int, image_url: str, original_url: str, author: str = None, source: str = None) -> int:
+    """
+    Saves metadata for a cluster image to the cluster_images table.
+    
+    Args:
+        cluster_id (int): The ID of the cluster this image belongs to
+        image_url (str): The URL of the uploaded image in Supabase storage
+        original_url (str): The original URL where the image was found
+        author (str, optional): The author/creator of the image
+        source (str, optional): The source/website where the image was found
+        
+    Returns:
+        int: The ID of the created record, or 0 if creation failed
+    """
+    if not _check_supabase_client():
+        logger.warning("Cannot save cluster image metadata: Supabase client missing.")
+        return 0
+        
+    try:
+        logger.info(f"Saving metadata for cluster image. Cluster ID: {cluster_id}")
+        
+        # Create record with current UTC timestamp
+        now = datetime.now(timezone.utc).isoformat()
+        record = {
+            "created_at": now,
+            "cluster_id": cluster_id,
+            "image_url": image_url,
+            "original_url": original_url
+        }
+        
+        # Add optional fields if provided
+        if author:
+            record["author"] = author
+        if source:
+            record["source"] = source
+            
+        # Insert the record
+        response = supabase.table("cluster_images").insert(record).execute()
+        
+        # Extract and return the ID
+        if response and response.data and len(response.data) > 0:
+            image_id = response.data[0].get("id", 0)
+            logger.info(f"Successfully saved cluster image metadata with ID: {image_id}")
+            return image_id
+        else:
+            logger.warning("No data returned when saving cluster image metadata")
+            return 0
+            
+    except Exception as e:
+        logger.error(f"Error saving cluster image metadata: {e}", exc_info=True)
+        return 0
+        
+async def save_article_image_metadata(article_id: int, image_url: str, original_url: str, author: str = None, source: str = None) -> int:
+    """
+    Saves metadata for an article image to the article_images table.
+    
+    Args:
+        article_id (int): The ID of the article this image belongs to
+        image_url (str): The URL of the uploaded image in Supabase storage
+        original_url (str): The original URL where the image was found
+        author (str, optional): The author/creator of the image
+        source (str, optional): The source/website where the image was found
+        
+    Returns:
+        int: The ID of the created record, or 0 if creation failed
+    """
+    if not _check_supabase_client():
+        logger.warning("Cannot save article image metadata: Supabase client missing.")
+        return 0
+        
+    try:
+        logger.info(f"Saving metadata for article image. Article ID: {article_id}")
+        
+        # Create record with current UTC timestamp
+        now = datetime.now(timezone.utc).isoformat()
+        record = {
+            "created_at": now,
+            "article_id": article_id,
+            "image_url": image_url,
+            "original_url": original_url
+        }
+        
+        # Add optional fields if provided
+        if author:
+            record["author"] = author
+        if source:
+            record["source"] = source
+            
+        # Insert the record
+        response = supabase.table("article_images").insert(record).execute()
+        
+        # Extract and return the ID
+        if response and response.data and len(response.data) > 0:
+            image_id = response.data[0].get("id", 0)
+            logger.info(f"Successfully saved article image metadata with ID: {image_id}")
+            return image_id
+        else:
+            logger.warning("No data returned when saving article image metadata")
+            return 0
+            
+    except Exception as e:
+        logger.error(f"Error saving article image metadata: {e}", exc_info=True)
+        return 0
+
+# --- END: Image Metadata Storage functions ---
