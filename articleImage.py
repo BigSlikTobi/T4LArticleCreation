@@ -604,6 +604,8 @@ class ImageSearcher:
             # Extract metadata from the image
             author = image.get('author', '')
             source = image.get('source', '')
+            
+            # Try to extract source from sourceUrl if available
             if not source and 'sourceUrl' in image:
                 try:
                     # Extract domain name from sourceUrl as a fallback source
@@ -611,7 +613,18 @@ class ImageSearcher:
                     parsed_url = urlparse(image.get('sourceUrl', ''))
                     source = parsed_url.netloc
                 except Exception as e:
-                    print(f"Error extracting domain from URL: {e}")
+                    print(f"Error extracting domain from sourceUrl: {e}")
+            
+            # If still no source, extract from the original image URL
+            if not source:
+                try:
+                    # Extract domain name from the image URL itself
+                    from urllib.parse import urlparse
+                    parsed_url = urlparse(original_url)
+                    source = parsed_url.netloc
+                    print(f"Extracted source '{source}' from image URL")
+                except Exception as e:
+                    print(f"Error extracting domain from image URL: {e}")
             
             try:
                 print(f"Processing image {idx}/{num_images}: {original_url[:60]}...")
