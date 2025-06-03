@@ -11,13 +11,21 @@ from team_classifier import classify_team  # Changed import to use simple classi
 async def process_single_article(article: Dict, image_searcher: ImageSearcher, teams_data: List[Dict]) -> Dict:
     """
     Process a single article through the complete pipeline:
-    1. Generate English version
-    2. Generate German version
-    3. Search for relevant images
-    4. Classify article by team
-    5. Validate all required content is present
-    6. Save to NewsArticles database if valid
-    7. Mark source article as processed only if saved successfully
+        1. Generate English version
+        2. Generate German version
+        3. Search for relevant images
+        4. Classify article by team
+        5. Validate all required content is present
+        6. Save to NewsArticles database if valid
+        7. Mark source article as processed only if saved successfully
+
+    Args:
+        article (Dict): The source article record to process.
+        image_searcher (ImageSearcher): The image searcher instance for finding images.
+        teams_data (List[Dict]): List of team records for classification.
+
+    Returns:
+        Dict: A dictionary with processing results, including article content, images, and status flags.
     """
     article_id = article['id']
     
@@ -232,9 +240,12 @@ async def process_single_article(article: Dict, image_searcher: ImageSearcher, t
 async def run_pipeline():
     """
     Main pipeline function that:
-    1. Fetches articles to process
-    2. Processes each article sequentially through all steps
-    3. Reports processing results
+        1. Fetches articles to process
+        2. Processes each article sequentially through all steps
+        3. Reports processing results
+
+    Returns:
+        None
     """
     print("Starting Article Processing Pipeline...")
     

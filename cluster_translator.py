@@ -70,11 +70,34 @@ async def _translate_single_component(
     max_tokens: int,
     prompt_template: str
 ) -> Optional[str]:
-    """Helper function to translate a single text component."""
+    """
+    Helper function to translate a single text component using a language model.
+
+    Args:
+        text_to_translate (str): The text content to be translated.
+        target_language_name (str): The full name of the target language (e.g., 'German').
+        target_language_code (str): The language code (e.g., 'de').
+        component_name (str): The name of the article component (e.g., 'headline', 'summary') for logging.
+        max_tokens (int): The maximum number of tokens allowed in the translation output.
+        prompt_template (str): The prompt template to use for the translation request.
+
+    Returns:
+        Optional[str]: The translated text, or an empty string if input is empty, or None if translation fails.
+
+    Raises:
+        Exception: If the translation model fails or returns an error.
+
+    Side Effects:
+        Logs information about skipped or failed translations.
+    """
+    # Log the function call for validation and debugging
+    logging.info(f"_translate_single_component called for '{component_name}' to '{target_language_name}' ({target_language_code}) with max_tokens={max_tokens}.")
+
     if not text_to_translate:
         logging.info(f"Component '{component_name}' is empty, skipping translation.")
         return ""
 
+    # Format the prompt for the LLM using the provided template and parameters
     prompt = prompt_template.format(
         language_name=target_language_name,
         language_code=target_language_code,
@@ -118,8 +141,20 @@ async def translate_article_components(
     target_language_name: Optional[str] = None
 ) -> Optional[Dict]:
     """
-    Translates article components (headline, summary, content) to the target language
-    by translating each component separately and concurrently.
+    Translates article components (headline, summary, content) to the target language by translating each component separately and concurrently.
+
+    Args:
+        english_headline (str): The English headline to translate.
+        english_summary (str): The English summary to translate.
+        english_content (str): The English content/body to translate.
+        target_language_code (str): The target language code (e.g., 'de').
+        target_language_name (Optional[str]): The full name of the target language (e.g., 'German'). If None, will be inferred from LANGUAGE_NAME_MAP.
+
+    Returns:
+        Optional[Dict]: Dictionary with translated components (headline, summary, content), or None if translation fails.
+
+    Side Effects:
+        Logs errors and translation status.
     """
     if not gemini_translator_model or "Error:" in component_translation_prompt_template: # Check new prompt
         print("Cluster Translator: Model not initialized or component prompt error. Skipping translation.")
@@ -174,7 +209,18 @@ async def process_and_store_translation(
     target_language_code: str
 ):
     """
-    Orchestrates translation for a single article and language, then stores it.
+    Orchestrates translation for a single article and language, then stores it in the database.
+
+    Args:
+        cluster_article_id (str): The UUID of the cluster article to translate.
+        english_data (Dict): Dictionary containing English 'headline', 'summary', and 'content'.
+        target_language_code (str): The target language code (e.g., 'de').
+
+    Returns:
+        None
+
+    Side Effects:
+        Logs translation and storage status. Writes to the database.
     """
     logger = logging.getLogger(__name__) # Get logger for this specific function call
     logger.info(f"Attempting translation for cluster_article_id {cluster_article_id} to {target_language_code}.")
@@ -207,8 +253,17 @@ async def process_and_store_translation(
 
 async def translate_untranslated_cluster_articles(target_languages: Optional[List[str]] = None):
     """
-    Standalone function to find and translate cluster articles that are missing translations
-    for the specified languages.
+    Finds and translates all cluster articles missing translations for the specified languages.
+    For each language, fetches articles needing translation, translates, and stores them.
+
+    Args:
+        target_languages (Optional[List[str]]): List of language codes to translate to. Defaults to ['de'] if None.
+
+    Returns:
+        None
+
+    Side Effects:
+        Logs progress and errors. Writes translations to the database.
     """
     logger = logging.getLogger(__name__)
     if target_languages is None:
