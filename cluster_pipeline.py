@@ -159,9 +159,32 @@ async def process_single_cluster(
                 if image1_url or image2_url:
                     if await database.update_cluster_article_images(processed_cluster_article_id, image1_url, image2_url):
                         logger.info(f"Successfully updated images for cluster article {processed_cluster_article_id}.")
-                    else: logger.error(f"Failed to update images for cluster article {processed_cluster_article_id}.")
-                else: logger.info(f"No valid image URLs to update for cluster article {processed_cluster_article_id}.")
-            except Exception as e_img: logger.error(f"Error during image search for {processed_cluster_article_id}: {e_img}", exc_info=True)
+                        
+                        # Save image metadata to cluster_image table
+                        for idx, image in enumerate(images[:2]):  # Up to 2 images for clusters
+                            if 'url' in image and image['url']:
+                                try:
+                                    image_url = image['url']
+                                    original_url = image.get('original_url', '')
+                                    author = image.get('author', '')
+                                    source = image.get('source', '')
+                                    
+                                    await database.save_cluster_image_metadata(
+                                        cluster_id=cluster_id,
+                                        image_url=image_url,
+                                        original_url=original_url,
+                                        author=author,
+                                        source=source
+                                    )
+                                    logger.info(f"Saved metadata for cluster image {idx+1}")
+                                except Exception as e_meta:
+                                    logger.error(f"Error saving image metadata for image {idx+1}: {e_meta}")
+                    else: 
+                        logger.error(f"Failed to update images for cluster article {processed_cluster_article_id}.")
+                else: 
+                    logger.info(f"No valid image URLs to update for cluster article {processed_cluster_article_id}.")
+            except Exception as e_img: 
+                logger.error(f"Error during image search for {processed_cluster_article_id}: {e_img}", exc_info=True)
         
         # --- 3. Translation Step (applies if English content was successful) ---
         logger.info(f"Attempting translations for cluster article {processed_cluster_article_id}.")

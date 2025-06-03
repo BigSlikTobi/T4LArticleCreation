@@ -2,7 +2,7 @@ import asyncio
 import json
 from datetime import datetime
 from typing import Dict, List
-from database import fetch_unprocessed_articles, mark_article_as_processed, insert_processed_article, fetch_teams
+from database import fetch_unprocessed_articles, mark_article_as_processed, insert_processed_article, fetch_teams, save_article_image_metadata
 from englishArticle import generate_english_article
 from germanArticle import generate_german_article
 from articleImage import ImageSearcher
@@ -193,12 +193,33 @@ async def process_single_article(article: Dict, image_searcher: ImageSearcher, t
             "status": "NEW"
         }
         
-        success = await insert_processed_article(db_article)
-        if not success:
+        # Insert the article into the database
+        new_article_id = await insert_processed_article(db_article)
+        if not new_article_id:
             raise Exception("Failed to insert article into NewsArticles database")
         
         # Article was successfully created and saved
         isArticleCreated = True
+        
+        # Save image metadata to article_image table
+        for idx, image in enumerate(images[:3]):  # Up to 3 images
+            if 'url' in image and image['url']:
+                try:
+                    image_url = image['url']
+                    original_url = image.get('original_url', '')
+                    author = image.get('author', '')
+                    source = image.get('source', '')
+                    
+                    await save_article_image_metadata(
+                        article_id=new_article_id,
+                        image_url=image_url,
+                        original_url=original_url,
+                        author=author,
+                        source=source
+                    )
+                    logger.info(f"Saved metadata for article image {idx+1}")
+                except Exception as e:
+                    logger.error(f"Error saving image metadata for image {idx+1}: {e}")
         
         # Step 7: Only mark the source article as processed if successfully saved
         success = await mark_article_as_processed(article_id)

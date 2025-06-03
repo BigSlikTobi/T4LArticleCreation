@@ -601,6 +601,18 @@ class ImageSearcher:
             hash_digest = hashlib.md5(original_url.encode()).hexdigest()
             destination_path = f"public/{hash_digest}_img{idx}.jpg"
             
+            # Extract metadata from the image
+            author = image.get('author', '')
+            source = image.get('source', '')
+            if not source and 'sourceUrl' in image:
+                try:
+                    # Extract domain name from sourceUrl as a fallback source
+                    from urllib.parse import urlparse
+                    parsed_url = urlparse(image.get('sourceUrl', ''))
+                    source = parsed_url.netloc
+                except Exception as e:
+                    print(f"Error extracting domain from URL: {e}")
+            
             try:
                 print(f"Processing image {idx}/{num_images}: {original_url[:60]}...")
                 new_url = await self.download_and_upload_image(original_url, destination_path)
@@ -608,6 +620,8 @@ class ImageSearcher:
                 # Replace with the new URL on success
                 image['url'] = new_url
                 image['original_url'] = original_url  # Store the original URL as reference
+                image['author'] = author  # Store author metadata
+                image['source'] = source  # Store source metadata
                 image['processed'] = True
                 successful_uploads += 1
                 print(f"✅ Image {idx}/{num_images} successfully processed and uploaded to Supabase")
@@ -622,6 +636,8 @@ class ImageSearcher:
                 
                 image['url'] = expected_supabase_url
                 image['original_url'] = original_url  # For reference
+                image['author'] = author  # Still store author metadata even on failure
+                image['source'] = source  # Still store source metadata even on failure
                 image['processed'] = False # Mark as not successfully processed
                 
                 print(f"    Image processing failed. Storing expected Supabase URL: {expected_supabase_url}")
