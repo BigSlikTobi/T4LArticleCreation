@@ -217,9 +217,9 @@ async def process_single_article(article: Dict, image_searcher: ImageSearcher, t
                         author=author,
                         source=source
                     )
-                    print(f"Saved metadata for article image {idx+1}")
+                    logger.info(f"Saved metadata for article image {idx+1}")
                 except Exception as e:
-                    print(f"Error saving image metadata for image {idx+1}: {e}")
+                    logger.error(f"Error saving image metadata for image {idx+1}: {e}")
         
         # Step 7: Only mark the source article as processed if successfully saved
         success = await mark_article_as_processed(article_id)
