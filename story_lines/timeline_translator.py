@@ -40,7 +40,13 @@ prompts = {}
 
 
 def load_prompts():
-    """Load required prompts from the prompts.yml file"""
+    """
+    Loads required prompts from the prompts.yml file for translation tasks.
+
+    Side Effects:
+        Sets the global 'prompts' variable.
+        Logs errors and raises exceptions if the file or required prompt is missing or invalid.
+    """
     global prompts
     try:
         with open(PROMPTS_FILE_PATH, 'r') as f:
@@ -63,7 +69,19 @@ def load_prompts():
 
 
 async def initialize_llm(model_type="flash"):
-    """Initialize the LLM model for translation - using flash model by default as it's good for translation"""
+    """
+    Initializes the LLM model for translation, using the specified model type (default: 'flash').
+
+    Args:
+        model_type (str): The type of model to use for translation (default: 'flash').
+
+    Returns:
+        dict: The initialized LLM model info.
+
+    Side Effects:
+        Sets the global 'llm_model_info' variable.
+        Logs errors and raises exceptions if initialization fails.
+    """
     global llm_model_info
     try:
         # Use LLMSetup.py to get the model, but specify a different model than for generation

@@ -12,13 +12,15 @@ def initialize_model(provider: str, model_type: str = "default", grounding_enabl
     Initialize a Gemini model with optional Google Search grounding using the new client configuration.
 
     Args:
-        provider: The provider name. Only 'gemini' is supported.
-        model_type: The type of Gemini model to use ("default", "lite", or "flash").
-        grounding_enabled: Whether to enable Google Search grounding.
+        provider (str): The provider name. Only 'gemini' is supported.
+        model_type (str): The type of Gemini model to use ("default", "lite", or "flash").
+        grounding_enabled (bool): Whether to enable Google Search grounding.
 
     Returns:
-        A dictionary containing the model name, the models object (client.models), a flag indicating if grounding is enabled,
-        and the tools configuration.
+        dict: A dictionary containing the model name, the models object (client.models), a flag indicating if grounding is enabled, and the tools configuration.
+
+    Raises:
+        ValueError: If the provider or model_type is unsupported, or if the API key is missing.
     """
     if provider.lower() != "gemini":
         raise ValueError("Unsupported provider. Only 'gemini' is supported in this setup.")

@@ -35,6 +35,12 @@ else:
 
 # Helper function to check if Supabase client is available
 def _check_supabase_client():
+    """
+    Checks if the Supabase client is initialized and available.
+
+    Returns:
+        bool: True if the client is available, False otherwise.
+    """
     if supabase is None:
         logger.error("Supabase client is not initialized.") # Added logging
     return True
@@ -42,6 +48,9 @@ def _check_supabase_client():
 async def fetch_primary_sources() -> List[int]:
     """
     Fetches all primary news sources from the NewsSource table.
+
+    Returns:
+        List[int]: List of primary news source IDs.
     """
     if not _check_supabase_client() or not supabase_key or not supabase_url:
         logger.warning("Cannot fetch primary sources: Supabase client/config missing.")
@@ -72,7 +81,10 @@ async def fetch_primary_sources() -> List[int]:
 
 async def fetch_unprocessed_articles() -> List[Dict]:
     """
-    Fetches articles from the SourceArticles table that meet the criteria.
+    Fetches articles from the SourceArticles table that meet the criteria for processing.
+
+    Returns:
+        List[Dict]: List of unprocessed article records as dictionaries.
     """
     if not _check_supabase_client() or not supabase_key or not supabase_url:
         logger.warning("Cannot fetch unprocessed articles: Supabase client/config missing.")
@@ -118,6 +130,9 @@ async def fetch_unprocessed_articles() -> List[Dict]:
 async def fetch_teams() -> List[Dict]:
     """
     Fetches all teams from the Teams table.
+
+    Returns:
+        List[Dict]: List of team records as dictionaries.
     """
     if not _check_supabase_client() or not supabase_key or not supabase_url:
         logger.warning("Cannot fetch teams: Supabase client/config missing.")
@@ -145,6 +160,12 @@ async def fetch_teams() -> List[Dict]:
 async def mark_article_as_processed(article_id: int) -> bool:
     """
     Marks an article as processed in the SourceArticles table.
+
+    Args:
+        article_id (int): The ID of the article to mark as processed.
+
+    Returns:
+        bool: True if the update was successful, False otherwise.
     """
     if not _check_supabase_client(): return False
     try:
@@ -164,6 +185,12 @@ async def mark_article_as_processed(article_id: int) -> bool:
 async def check_for_updates(source_article_id: int) -> bool:
     """
     Checks if the article should be marked as an update via ArticleVector table.
+
+    Args:
+        source_article_id (int): The ID of the source article to check for updates.
+
+    Returns:
+        bool: True if the article is an update, False otherwise.
     """
     if not _check_supabase_client(): return False
     try:
@@ -183,6 +210,13 @@ async def check_for_updates(source_article_id: int) -> bool:
 async def update_articles_updated_by(article_id: int, source_article_id: int) -> bool:
     """
     Updates the UpdatedBy field for articles updated by the current article.
+
+    Args:
+        article_id (int): The ID of the article to update.
+        source_article_id (int): The ID of the source article that updated this article.
+
+    Returns:
+        bool: True if the update was successful, False otherwise.
     """
     if not _check_supabase_client(): return False
     overall_success = True
@@ -212,6 +246,12 @@ async def update_articles_updated_by(article_id: int, source_article_id: int) ->
 async def insert_processed_article(article_data: Dict) -> Optional[int]:
     """
     Inserts a processed article into the NewsArticles table.
+
+    Args:
+        article_data (Dict): Dictionary containing article data to insert.
+
+    Returns:
+        Optional[int]: The ID of the inserted article, or None if insertion failed.
     """
     if not _check_supabase_client(): return None
     required_keys = ["headlineEnglish", "headlineGerman", "SummaryEnglish", "SummaryGerman",
@@ -254,6 +294,9 @@ async def insert_processed_article(article_data: Dict) -> Optional[int]:
 async def batch_update_article_status() -> Dict:
     """
     Batch updates isUpdate status for NewsArticles.
+
+    Returns:
+        Dict: Statistics about the batch update (total, updated, errors).
     """
     if not _check_supabase_client(): return {"total": 0, "updated": 0, "errors": 1, "message": "Supabase client not initialized"}
     stats = {"total": 0, "updated": 0, "errors": 0}
@@ -304,6 +347,12 @@ async def batch_update_article_status() -> Dict:
 async def get_source_articles_content(article_ids: List[int]) -> Dict[int, str]:
     """
     Fetches English content ('Content') for a list of SourceArticle IDs.
+
+    Args:
+        article_ids (List[int]): List of source article IDs to fetch content for.
+
+    Returns:
+        Dict[int, str]: Mapping from article ID to content string.
     """
     if not _check_supabase_client(): return {aid: '' for aid in article_ids}
     content_map = {}; 
@@ -332,6 +381,13 @@ async def get_source_articles_content(article_ids: List[int]) -> Dict[int, str]:
 async def get_article_translation(source_article_id: int, language_code: str = 'de') -> Optional[str]:
     """
     Checks ArticleTranslations table for existing translation.
+
+    Args:
+        source_article_id (int): The ID of the source article.
+        language_code (str): The language code to check for (default: 'de').
+
+    Returns:
+        Optional[str]: The translated content if found, else None.
     """
     # This function seems to be for the old 'ArticleTranslations' table, 
     # distinct from the new 'cluster_article_int' logic. Keep if still used.
@@ -349,7 +405,15 @@ async def get_article_translation(source_article_id: int, language_code: str = '
 
 async def insert_article_translation(source_article_id: int, language_code: str, translated_content: str) -> bool:
     """
-    Inserts into ArticleTranslations table.
+    Inserts a translation into the ArticleTranslations table.
+
+    Args:
+        source_article_id (int): The ID of the source article.
+        language_code (str): The language code for the translation.
+        translated_content (str): The translated content to insert.
+
+    Returns:
+        bool: True if the insertion was successful, False otherwise.
     """
     # This function also seems for the old 'ArticleTranslations' table.
     if not _check_supabase_client(): return False
@@ -366,6 +430,15 @@ async def insert_article_translation(source_article_id: int, language_code: str,
 # --- START: Functions for Cluster Story Processing ---
 
 async def fetch_clusters_to_process(status: str) -> List[Dict]:
+    """
+    Fetches clusters to process based on the given status.
+
+    Args:
+        status (str): The status to filter clusters by.
+
+    Returns:
+        List[Dict]: List of cluster records as dictionaries.
+    """
     if not _check_supabase_client(): return []
     try:
         logger.info(f"Fetching clusters: status='{status}', isContent=false.")
@@ -382,6 +455,12 @@ async def fetch_source_articles_for_cluster(cluster_id: Union[str, UUID]) -> Lis
     Fetches source articles for a given cluster_id, ordered by creation date.
     Ensures 'id', 'headline', 'Content', 'created_at', and source name are selected.
     Joins with NewsSource table to get the source name.
+
+    Args:
+        cluster_id (Union[str, UUID]): The cluster ID to fetch articles for.
+
+    Returns:
+        List[Dict]: List of source article records as dictionaries.
     """
     if not _check_supabase_client() or supabase is None:
         logger.error(f"Supabase client not initialized. Cannot fetch articles for cluster {cluster_id}.")
@@ -412,6 +491,15 @@ async def fetch_source_articles_for_cluster(cluster_id: Union[str, UUID]) -> Lis
         return []
 
 async def get_existing_cluster_article(cluster_id: Union[str, UUID]) -> Optional[Dict]:
+    """
+    Fetches the existing synthesized article for a given cluster ID, if any.
+
+    Args:
+        cluster_id (Union[str, UUID]): The cluster ID to fetch the article for.
+
+    Returns:
+        Optional[Dict]: The article record if found, else None.
+    """
     if not _check_supabase_client(): return None
     try:
         logger.info(f"Fetching existing synthesized article for cluster_id: {cluster_id}")
@@ -423,6 +511,17 @@ async def get_existing_cluster_article(cluster_id: Union[str, UUID]) -> Optional
         logger.error(f"Exception fetching existing cluster article: {e}", exc_info=True); return None
 
 async def insert_cluster_article(cluster_id: Union[str, UUID], source_article_ids: List[int], article_data: Dict) -> Optional[UUID]:
+    """
+    Inserts a synthesized article for a cluster into the database.
+
+    Args:
+        cluster_id (Union[str, UUID]): The cluster ID for the article.
+        source_article_ids (List[int]): List of source article IDs used for synthesis.
+        article_data (Dict): The synthesized article data.
+
+    Returns:
+        Optional[UUID]: The UUID of the inserted cluster article, or None if insertion failed.
+    """
     if not _check_supabase_client(): return None
     try:
         new_article_id = uuid4()
@@ -444,6 +543,17 @@ async def insert_cluster_article(cluster_id: Union[str, UUID], source_article_id
         logger.error(f"Exception inserting cluster article: {e}", exc_info=True); return None
 
 async def update_cluster_article(cluster_article_id: Union[str, UUID], source_article_ids: List[int], article_data: Dict) -> bool:
+    """
+    Updates a synthesized article for a cluster in the database.
+
+    Args:
+        cluster_article_id (Union[str, UUID]): The UUID of the cluster article to update.
+        source_article_ids (List[int]): List of source article IDs used for synthesis.
+        article_data (Dict): The updated article data.
+
+    Returns:
+        bool: True if the update was successful, False otherwise.
+    """
     if not _check_supabase_client(): return False
     try:
         logger.info(f"Updating synthesized cluster article ID: {cluster_article_id}")
@@ -463,6 +573,15 @@ async def update_cluster_article(cluster_article_id: Union[str, UUID], source_ar
         logger.error(f"Exception updating cluster article: {e}", exc_info=True); return False
 
 async def mark_cluster_content_processed(cluster_id: Union[str, UUID]) -> bool:
+    """
+    Marks the content for a cluster as processed in the database.
+
+    Args:
+        cluster_id (Union[str, UUID]): The cluster ID to mark as processed.
+
+    Returns:
+        bool: True if the update was successful, False otherwise.
+    """
     if not _check_supabase_client(): return False
     try:
         logger.info(f"Marking cluster {cluster_id} as content processed.")
@@ -475,6 +594,17 @@ async def mark_cluster_content_processed(cluster_id: Union[str, UUID]) -> bool:
         logger.error(f"Exception marking cluster processed: {e}", exc_info=True); return False
     
 async def update_cluster_article_images(cluster_article_id: Union[str, UUID], image_url: Optional[str] = None, image2_url: Optional[str] = None) -> bool:
+    """
+    Updates image URLs for a cluster article in the database.
+
+    Args:
+        cluster_article_id (Union[str, UUID]): The UUID of the cluster article to update.
+        image_url (Optional[str]): The first image URL to update (if any).
+        image2_url (Optional[str]): The second image URL to update (if any).
+
+    Returns:
+        bool: True if the update was successful, False otherwise.
+    """
     if not _check_supabase_client(): return False
     if not cluster_article_id: logger.error("Missing cluster_article_id for image update."); return False
     data_to_update = {}
@@ -495,6 +625,16 @@ async def update_cluster_article_images(cluster_article_id: Union[str, UUID], im
 # --- START: New functions for Cluster Article Internationalization (cluster_article_int) ---
 
 async def get_cluster_article_translation(cluster_article_id: Union[str, UUID], language_code: str) -> Optional[Dict]:
+    """
+    Fetches a translation for a cluster article in the specified language.
+
+    Args:
+        cluster_article_id (Union[str, UUID]): The UUID of the cluster article.
+        language_code (str): The language code for the translation.
+
+    Returns:
+        Optional[Dict]: The translation record if found, else None.
+    """
     if not _check_supabase_client(): return None
     try:
         logger.debug(f"Checking translation for cluster_article_id {cluster_article_id}, language {language_code}")
@@ -509,6 +649,17 @@ async def get_cluster_article_translation(cluster_article_id: Union[str, UUID], 
         logger.error(f"General error checking translation: {e}", exc_info=True); return None
 
 async def insert_cluster_article_translation(cluster_article_id: Union[str, UUID], language_code: str, translated_data: Dict) -> bool:
+    """
+    Inserts a translation for a cluster article into the database.
+
+    Args:
+        cluster_article_id (Union[str, UUID]): The UUID of the cluster article.
+        language_code (str): The language code for the translation.
+        translated_data (Dict): The translated article data.
+
+    Returns:
+        bool: True if the insertion was successful, False otherwise.
+    """
     if not _check_supabase_client(): return False
     headline, summary, content = translated_data.get("translated_headline"), translated_data.get("translated_summary"), translated_data.get("translated_content")
     if not all([headline, summary, content]):
@@ -535,6 +686,15 @@ async def insert_cluster_article_translation(cluster_article_id: Union[str, UUID
         logger.error(f"General error inserting translation: {e}", exc_info=True); return False
 
 async def get_cluster_articles_needing_translation(language_code: str) -> List[Dict]:
+    """
+    Fetches cluster articles that are missing translations for the specified language.
+
+    Args:
+        language_code (str): The language code to check for missing translations.
+
+    Returns:
+        List[Dict]: List of cluster article records needing translation.
+    """
     if not _check_supabase_client(): return []
     try:
         logger.info(f"Fetching cluster articles needing translation for language_code '{language_code}'.")
@@ -557,7 +717,10 @@ async def get_cluster_articles_needing_translation(language_code: str) -> List[D
 
 async def fetch_all_cluster_ids() -> List[Union[str, UUID]]:
     """
-    Fetches all unique IDs from the 'clusters' table where cherry_pick is true.
+    Fetches all cluster IDs from the database.
+
+    Returns:
+        List[Union[str, UUID]]: List of all cluster IDs.
     """
     if not _check_supabase_client() or supabase is None:
         logger.error("Supabase client not initialized. Cannot fetch cluster IDs.")
@@ -600,14 +763,14 @@ async def fetch_all_cluster_ids() -> List[Union[str, UUID]]:
 
 async def save_timeline_to_database(cluster_id: Union[str, UUID], timeline_entries: List[Dict]) -> bool:
     """
-    Save timeline data to the timelines table with grouped entries by date.
-    
+    Saves timeline entries for a cluster to the database.
+
     Args:
-        cluster_id: The cluster ID for this timeline
-        timeline_entries: List of timeline entries with created_at, headline, summary, etc.
-    
+        cluster_id (Union[str, UUID]): The cluster ID for the timeline.
+        timeline_entries (List[Dict]): List of timeline entry records to save.
+
     Returns:
-        bool: True if successful, False otherwise
+        bool: True if the save was successful, False otherwise.
     """
     if not _check_supabase_client(): 
         return False
@@ -686,16 +849,16 @@ async def save_timeline_to_database(cluster_id: Union[str, UUID], timeline_entri
 
 async def save_translated_timeline(timeline_id: Union[str, UUID], language_code: str, translated_data: Dict, cluster_id: Union[str, UUID] = None) -> bool:
     """
-    Save translated timeline data to the timelines_int table.
-    
+    Saves a translated timeline to the database.
+
     Args:
-        timeline_id: The ID of the timeline in the timelines table
-        language_code: The language code (e.g., 'de')
-        translated_data: The translated timeline data
-        cluster_id: The cluster ID (optional - will be extracted from timeline if not provided)
-    
+        timeline_id (Union[str, UUID]): The timeline ID to save the translation for.
+        language_code (str): The language code for the translation.
+        translated_data (Dict): The translated timeline data.
+        cluster_id (Union[str, UUID], optional): The cluster ID associated with the timeline.
+
     Returns:
-        bool: True if successful, False otherwise
+        bool: True if the save was successful, False otherwise.
     """
     if not _check_supabase_client(): return False
     
@@ -778,14 +941,13 @@ async def save_translated_timeline(timeline_id: Union[str, UUID], language_code:
 
 async def get_untranslated_timelines(language_code: str = 'de') -> List[Dict]:
     """
-    Fetch timelines that don't have a translation in the specified language.
-    Uses a left join to find English timelines without corresponding entries in timelines_int.
-    
+    Fetches timelines that are missing translations for the specified language.
+
     Args:
-        language_code: The language code to check for translations (default: 'de')
-    
+        language_code (str, optional): The language code to check for missing translations (default: 'de').
+
     Returns:
-        List of timeline records (each containing id and timeline_data) that need translation
+        List[Dict]: List of timeline records needing translation.
     """
     if not _check_supabase_client(): return []
     try:
@@ -839,16 +1001,16 @@ async def save_story_line_view(
     deep_dive_article: Dict[str, str]
 ) -> bool:
     """
-    Save a story line view (deep dive article) to the story_line_view table.
-    
+    Saves a story line view for a cluster to the database.
+
     Args:
-        cluster_id: The cluster ID this story line belongs to
-        viewpoint_name: The name of the viewpoint (e.g., "Economic Impact Analysis")
-        viewpoint_justification: The justification for why this viewpoint is relevant
-        deep_dive_article: Dict containing "headline", "introduction", "content", "bullet_points"
-    
+        cluster_id (Union[str, UUID]): The cluster ID for the story line view.
+        viewpoint_name (str): The name of the viewpoint.
+        viewpoint_justification (str): The justification for the viewpoint.
+        deep_dive_article (Dict[str, str]): The deep dive article data.
+
     Returns:
-        bool: True if successful, False otherwise
+        bool: True if the save was successful, False otherwise.
     """
     if not _check_supabase_client(): 
         return False
@@ -901,15 +1063,15 @@ async def save_multiple_story_line_views(
     deep_dive_articles: List[Dict[str, str]]
 ) -> Dict[str, int]:
     """
-    Save multiple story line views for a cluster.
-    
+    Saves multiple story line views for a cluster to the database.
+
     Args:
-        cluster_id: The cluster ID
-        viewpoints: List of viewpoint dicts with "name" and "justification"
-        deep_dive_articles: List of deep dive article dicts with "headline", "introduction", "content"
-    
+        cluster_id (Union[str, UUID]): The cluster ID for the story line views.
+        viewpoints (List[Dict]): List of viewpoint records.
+        deep_dive_articles (List[Dict[str, str]]): List of deep dive article data.
+
     Returns:
-        Dict with "total", "saved", "failed" counts
+        Dict[str, int]: Dictionary with counts of successful and failed saves.
     """
     if not _check_supabase_client():
         return {"total": 0, "saved": 0, "failed": 0}
@@ -950,13 +1112,13 @@ async def save_multiple_story_line_views(
 
 async def get_untranslated_story_line_views(language_code: str = 'de') -> List[Dict]:
     """
-    Retrieve story line views that don't have translations in the specified language.
-    
+    Fetches story line views that are missing translations for the specified language.
+
     Args:
-        language_code: The language code to check for (default: 'de' for German)
-        
+        language_code (str, optional): The language code to check for missing translations (default: 'de').
+
     Returns:
-        List of story line view dictionaries that need translation
+        List[Dict]: List of story line view records needing translation.
     """
     if not _check_supabase_client():
         return []
@@ -992,22 +1154,21 @@ async def get_untranslated_story_line_views(language_code: str = 'de') -> List[D
         logger.error(f"Unexpected error fetching untranslated story line views: {e}")
         return []
 
-
 async def save_translated_story_line_view(
     story_line_view_id: Union[str, UUID],
     language_code: str,
     translated_data: Dict[str, str]
 ) -> bool:
     """
-    Save a translated story line view to the story_line_view_int table.
-    
+    Saves a translated story line view to the database.
+
     Args:
-        story_line_view_id: The ID of the original story line view
-        language_code: The language code (e.g., 'de' for German)
-        translated_data: Dict containing translated headline, content, introduction, view, justification
-        
+        story_line_view_id (Union[str, UUID]): The ID of the story line view to save the translation for.
+        language_code (str): The language code for the translation.
+        translated_data (Dict[str, str]): The translated story line view data.
+
     Returns:
-        bool: True if successful, False otherwise
+        bool: True if the save was successful, False otherwise.
     """
     if not _check_supabase_client():
         return False

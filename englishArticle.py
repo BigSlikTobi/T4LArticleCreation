@@ -43,9 +43,17 @@ except Exception as e:
 
 async def generate_english_article(main_content: str, verbose: bool = False) -> dict:
     """
-    Generates an English article with headline, summary, and structured content.
-    Returns a dict with 'headline', 'summary', and 'content'.
-    If verbose is True, includes the raw Gemini response in the result under 'raw_response'.
+    Generates an English article with headline, summary, and structured content using a Gemini LLM.
+
+    Args:
+        main_content (str): JSON string with keys 'headline' and 'content', or raw content as fallback.
+        verbose (bool): If True, includes the raw Gemini response in the result under 'raw_response'.
+
+    Returns:
+        dict: Dictionary with keys 'headline', 'summary', 'content', and optionally 'raw_response'.
+
+    Side Effects:
+        Prints warnings and errors to stdout. Logs raw LLM responses if verbose is True.
     
     The main_content parameter is expected to be a JSON string with the format:
     {
