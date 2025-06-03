@@ -197,7 +197,7 @@ class ImageSearcher:
         
         # Check blacklisted domains
         if any(domain in url_lower for domain in blacklisted_domains):
-            print(f"Image rejected due to blacklisted domain: {url}")
+            logging.warning(f"Image rejected due to blacklisted domain: {url}")
             return False
         
         # For DuckDuckGo, apply additional checks for suspicious licensing indicators
