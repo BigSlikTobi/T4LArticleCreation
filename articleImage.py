@@ -175,12 +175,50 @@ class ImageSearcher:
             key_terms.extend(long_words[:5])
         return list(dict.fromkeys(key_terms))
     
+    def _check_image_licensing(self, url: str, source: str = "ddgs") -> bool:
+        """
+        Check if an image URL is likely to have proper licensing.
+        For DuckDuckGo results, we use domain-based filtering to exclude
+        known commercial/copyrighted sources.
+        """
+        url_lower = url.lower()
+        
+        # Blacklisted domains - known commercial/copyrighted sources
+        blacklisted_domains = [
+            'lookaside.instagram.com', 'gettyimages.com', 'shutterstock.com', 
+            'istockphoto.com', 'tiktok.com/', 'fanatics.com', 'static.nike.com', 
+            'c8.alamy.com', 'alamy.com', 'fanatics.frgimages.com',
+            # Additional commercial/copyrighted domains
+            'adobe.com', 'dreamstime.com', '123rf.com', 'depositphotos.com',
+            'bigstock.com', 'fotolia.com', 'corbis.com', 'masterfile.com',
+            'superstock.com', 'agefotostock.com', 'stockphoto.com',
+            'stockvault.net', 'crestock.com', 'canstockphoto.com'
+        ]
+        
+        # Check blacklisted domains
+        if any(domain in url_lower for domain in blacklisted_domains):
+            logging.warning(f"Image rejected due to blacklisted domain: {url}")
+            return False
+        
+        # For DuckDuckGo, apply additional checks for suspicious licensing indicators
+        if source == "ddgs":
+            suspicious_indicators = [
+                'buy', 'purchase', 'license', 'premium', 'subscription',
+                'watermark', 'stock', 'royalty', 'copyright', '©'
+            ]
+            
+            # Check URL for suspicious indicators
+            if any(indicator in url_lower for indicator in suspicious_indicators):
+                print(f"Image rejected due to suspicious licensing indicators: {url}")
+                return False
+        
+        return True
+
     async def validate_image_url(self, session: aiohttp.ClientSession, image_data: Dict[str, str]) -> bool:
         url = image_data['url']
-        # Add blacklist check
-        blacklisted_domains = ['lookaside.instagram.com', 'gettyimages.com', 'shutterstock.com', 'istockphoto.com', 'tiktok.com/', 'fanatics.com',  'static.nike.com', 'c8.alamy.com', 'alamy.com', 'fanatics.frgimages.com']
-        if any(domain in url.lower() for domain in blacklisted_domains):
-            print(f"Blacklisted image URL: {url}")
+        
+        # Check licensing first
+        if not self._check_image_licensing(url, "ddgs"):
             return False
             
         try:
@@ -307,44 +345,60 @@ class ImageSearcher:
             all_results = []
             cutoff_date = datetime.now() - timedelta(days=14)
             
+            # Try different license parameters to approximate Google's Creative Commons filtering
+            # DuckDuckGo license options: 'any', 'Public', 'Share', 'ShareCommercially', 'Modify', 'ModifyCommercially'
+            license_filters = ['Public', 'Share', 'ShareCommercially', 'Modify', 'ModifyCommercially']
+            
             with DDGS() as ddgs:
-                page = 1
-                max_pages = 5
-                while page <= max_pages:
-                    total_requested = page * 10
-                    results = list(ddgs.images(query, max_results=total_requested))
-                    for result in results:
-                        if result not in all_results:
-                            all_results.append(result)
-                    current_page_results = results[(page-1)*10 : page*10]
-                    if not current_page_results:
-                        break
-                    
-                    for img in current_page_results:
-                        try:
-                            if 'width' in img and 'height' in img and img['height'] > 0:
-                                # Check for minimum resolution requirements
-                                if img['width'] >= 1200 and img['height'] >= 400:
-                                    filtered_results.append(img)
-                                elif len(filtered_results) < num_images:
-                                    # Only add lower resolution images if we haven't found enough high-res ones
-                                    aspect = img['width'] / img['height']
-                                    if 1.5 <= aspect <= 4.0:  # Reasonable aspect ratio for news images
-                                        filtered_results.append(img)
-                        except Exception as e:
+                # Try each license filter to get properly licensed images
+                for license_type in license_filters:
+                    try:
+                        print(f"Searching with license filter: {license_type}")
+                        license_results = list(ddgs.images(
+                            query, 
+                            max_results=20,  # Get more results per license type
+                            license_image=license_type
+                        ))
+                        
+                        for result in license_results:
+                            if result not in all_results:
+                                all_results.append(result)
+                                
+                        # If we have enough results, break early
+                        if len(all_results) >= num_images * 3:  # Get 3x more than needed for better filtering
+                            break
+                            
+                    except Exception as e:
+                        print(f"Error with license filter {license_type}: {e}")
+                        continue
+                
+                # If no licensed results found, fall back to regular search with basic filtering
+                if not all_results:
+                    print("No results from license filters, falling back to regular search...")
+                    all_results = list(ddgs.images(query, max_results=30))
+                
+                # Process and filter results
+                for img in all_results:
+                    try:
+                        # Basic licensing check (blacklist filtering)
+                        img_url = img.get('image', '')
+                        if not self._check_image_licensing(img_url, "ddgs"):
                             continue
+                            
+                        if 'width' in img and 'height' in img and img['height'] > 0:
+                            # Check for minimum resolution requirements
+                            if img['width'] >= 1200 and img['height'] >= 400:
+                                filtered_results.append(img)
+                            elif len(filtered_results) < num_images:
+                                # Only add lower resolution images if we haven't found enough high-res ones
+                                aspect = img['width'] / img['height']
+                                if 1.5 <= aspect <= 4.0:  # Reasonable aspect ratio for news images
+                                    filtered_results.append(img)
+                    except Exception as e:
+                        continue
                     
                     if len(filtered_results) >= num_images:
                         break
-                    page += 1
-                
-                # If we still don't have enough images, use the best ones we found
-                if len(filtered_results) < num_images:
-                    remaining_needed = num_images - len(filtered_results)
-                    # Sort remaining images by resolution
-                    remaining_images = [r for r in all_results if r not in filtered_results]
-                    remaining_images.sort(key=lambda x: x.get('width', 0) * x.get('height', 0), reverse=True)
-                    filtered_results.extend(remaining_images[:remaining_needed])
                 
                 return [{
                     'url': result.get('image', ''),
