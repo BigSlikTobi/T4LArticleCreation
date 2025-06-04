@@ -157,20 +157,21 @@ async def fetch_teams() -> List[Dict]:
         logger.error(f"Error fetching teams: {e}", exc_info=True)
         return []
 
-async def mark_article_as_processed(article_id: int) -> bool:
+async def mark_article_as_processed(article_id: int, article_created: bool = True) -> bool:
     """
     Marks an article as processed in the SourceArticles table.
 
     Args:
         article_id (int): The ID of the article to mark as processed.
+        article_created (bool): Whether the article was successfully created and saved.
 
     Returns:
         bool: True if the update was successful, False otherwise.
     """
     if not _check_supabase_client(): return False
     try:
-        logger.info(f"Marking SourceArticle {article_id} as processed.")
-        data = {"isArticleCreated": True}
+        logger.info(f"Marking SourceArticle {article_id} as processed, article_created: {article_created}.")
+        data = {"isArticleCreated": article_created}  # Use the passed in status
         response = supabase.table("SourceArticles").update(data).eq("id", article_id).execute()
         error_info = getattr(response, 'error', None)
         if error_info:
