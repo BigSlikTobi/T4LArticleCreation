@@ -117,10 +117,11 @@ german_prompt: |
   }
 
 image_search_prompt: |
-  Your task is to create the perfect image search query based on the article text below.
+  Your task is to create the perfect image search query based on the article text below. It is vital for the content you are supporting with this image search query, that the image you find is highly relevant and visually distinctive to the article's content. 
 
   Guidelines:
   - Create a concise query (5-8 key terms) that would find a relevant image for this article
+  - Make absolutely sure the query is specific to the article's content and in the context of American Football
   - Focus on the most visually distinctive elements in the article
   - Include proper names, specific objects, and unique identifiers
   - Avoid generic terms, stop words, or abstract concepts
