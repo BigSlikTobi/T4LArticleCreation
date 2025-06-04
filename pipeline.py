@@ -219,8 +219,8 @@ async def process_single_article(article: Dict, image_searcher: ImageSearcher, t
                     )
                     # logger.info(f"Saved metadata for article image {idx+1}") # Logger not defined in provided context
                 except Exception as e:
-                    # logger.error(f"Error saving image metadata for image {idx+1}: {e}") # Logger not defined
-                    pass # Silently pass if logger is not available or handle error appropriately
+                    print(f"Error saving image metadata for image {idx+1}: {e}")
+                    # Consider replacing print with a logger if available
         
         # Step 7: Only mark the source article as processed if successfully saved
         success = await mark_article_as_processed(article_id, article_created=isArticleCreated)
