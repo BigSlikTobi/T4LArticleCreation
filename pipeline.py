@@ -203,7 +203,7 @@ async def process_single_article(article: Dict, image_searcher: ImageSearcher, t
         
         # Save image metadata to article_image table
         for idx, image in enumerate(images[:3]):
-            if isinstance(image, dict) and 'url' in image: # Added check for robustness
+            if isinstance(image, dict) and 'url' in image and image['url']: # Added check for robustness and non-empty URL
                 await save_article_image_metadata(
                     article_id=new_article_id,
                     image_url=image['url'], # This is the Supabase URL
