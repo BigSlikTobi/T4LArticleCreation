@@ -164,10 +164,10 @@ async def process_single_cluster(
                         for idx, image in enumerate(images[:2]):  # Up to 2 images for clusters
                             if 'url' in image and image['url']:
                                 try:
-                                    image_url = image['url']
-                                    original_url = image.get('original_url', '')
-                                    author = image.get('author', '')
-                                    source = image.get('source', '')
+                                    image_url = image['url'] # This is the Supabase URL
+                                    original_url = image.get('original_url', image['url']) # URL from the web
+                                    author = image.get('author')
+                                    source = image.get('page_url') # This should be the website URL (e.g., nfl.com)
                                     
                                     await database.save_cluster_image_metadata(
                                         cluster_id=cluster_id,

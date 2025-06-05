@@ -1,5 +1,5 @@
 import asyncio
-import json
+import json  # Added import
 from datetime import datetime
 from typing import Dict, List
 from database import fetch_unprocessed_articles, mark_article_as_processed, insert_processed_article, fetch_teams, save_article_image_metadata
@@ -202,25 +202,17 @@ async def process_single_article(article: Dict, image_searcher: ImageSearcher, t
         isArticleCreated = True
         
         # Save image metadata to article_image table
-        for idx, image in enumerate(images[:3]):  # Up to 3 images
-            if 'url' in image and image['url']:
-                try:
-                    image_url = image['url']
-                    original_url = image.get('original_url', '')
-                    author = image.get('author', '')
-                    source = image.get('source', '')
-                    
-                    await save_article_image_metadata(
-                        article_id=new_article_id,
-                        image_url=image_url,
-                        original_url=original_url,
-                        author=author,
-                        source=source
-                    )
-                    # logger.info(f"Saved metadata for article image {idx+1}") # Logger not defined in provided context
-                except Exception as e:
-                    print(f"Error saving image metadata for image {idx+1}: {e}")
-                    # Consider replacing print with a logger if available
+        for idx, image in enumerate(images[:3]):
+            if isinstance(image, dict) and 'url' in image and image['url']: # Added check for robustness and non-empty URL
+                await save_article_image_metadata(
+                    article_id=new_article_id,
+                    image_url=image['url'], # This is the Supabase URL
+                    original_url=image.get('original_url', image['url']), # URL from the web
+                    author=image.get('author'),
+                    source=image.get('page_url') # This should be the website URL (e.g., nfl.com)
+                )
+            else:
+                print(f"Warning: Skipping invalid image data structure for article_id {new_article_id}. Image data: {image}")
         
         # Step 7: Only mark the source article as processed if successfully saved
         success = await mark_article_as_processed(article_id, article_created=isArticleCreated)
