@@ -1313,3 +1313,84 @@ async def save_article_image_metadata(article_id: int, image_url: str, original_
         return 0
 
 # --- END: Image Metadata Storage functions ---
+
+async def archive_old_articles() -> Dict:
+    """
+    Archives news articles that are older than 18 days by setting their status to 'ARCHIVED'.
+    
+    Returns:
+        Dict: Statistics about the archival process (total, archived, errors).
+    """
+    if not _check_supabase_client(): 
+        return {"total": 0, "archived": 0, "errors": 1, "message": "Supabase client not initialized"}
+    
+    stats = {"total": 0, "archived": 0, "errors": 0}
+    page, page_size, total_count = 0, 1000, None
+    archive_threshold = datetime.now(timezone.utc) - timedelta(days=18)
+    archive_threshold_str = archive_threshold.isoformat()
+    
+    try:
+        logger.info(f"Starting archival of news articles older than {archive_threshold_str}...")
+        
+        while True:
+            logger.info(f"Fetching NewsArticles page {page + 1}...")
+            current_count_method = 'exact' if page == 0 else None
+            
+            # Select articles that are older than the threshold and not already archived
+            response = supabase.table("NewsArticles") \
+                .select("id, created_at, status", count=current_count_method) \
+                .lt("created_at", archive_threshold_str) \
+                .not_.eq("status", "ARCHIVED") \
+                .range(page * page_size, (page + 1) * page_size - 1) \
+                .execute()
+                
+            if hasattr(response, 'error') and response.error:
+                logger.error(f"Error fetching NewsArticles page {page + 1}: {response.error}")
+                stats["errors"] += 1
+                break
+                
+            if page == 0:
+                total_count = getattr(response, 'count', 0) if hasattr(response, 'count') else len(response.data)
+                if total_count is None: 
+                    total_count = 0
+                logger.info(f"Total articles to archive: {total_count}")
+                stats["total"] = total_count
+                
+                if not response.data and total_count == 0:
+                    logger.info("No articles found to archive.")
+                    return stats
+                    
+            if not response.data:
+                logger.info("No more articles found to archive.")
+                break
+                
+            articles = response.data
+            
+            # Archive articles in batch
+            try:
+                article_ids = [article["id"] for article in articles]
+                update_resp = supabase.table("NewsArticles") \
+                    .update({"status": "ARCHIVED"}) \
+                    .in_("id", article_ids) \
+                    .execute()
+                
+                if getattr(update_resp, 'error', None):
+                    logger.error(f"Error archiving articles {article_ids}: {update_resp.error}")
+                    stats["errors"] += len(article_ids)
+                else:
+                    logger.info(f"Set {len(article_ids)} articles to ARCHIVED status.")
+                    stats["archived"] += len(article_ids)
+                    
+            except Exception as e_upd:
+                logger.error(f"Exception archiving articles {article_ids}: {e_upd}")
+                stats["errors"] += len(article_ids)
+                    
+            page += 1
+            
+        logger.info(f"Article archival complete. Statistics: {stats}")
+        return stats
+        
+    except Exception as e:
+        logger.error(f"Error in archive_old_articles: {e}", exc_info=True)
+        stats["errors"] += 1
+        return stats
