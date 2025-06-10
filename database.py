@@ -1366,25 +1366,24 @@ async def archive_old_articles() -> Dict:
                 
             articles = response.data
             
-            # Archive each article individually
-            for article in articles:
-                try:
-                    update_resp = supabase.table("NewsArticles") \
-                        .update({"status": "ARCHIVED"}) \
-                        .eq("id", article["id"]) \
-                        .execute()
-                        
-                    if getattr(update_resp, 'error', None):
-                        logger.error(f"Error archiving article {article['id']}: {update_resp.error}")
-                        stats["errors"] += 1
-                    else:
-                        created_at = article.get("created_at", "unknown date")
-                        logger.info(f"Set article {article['id']} to ARCHIVED status (created: {created_at})")
-                        stats["archived"] += 1
-                        
-                except Exception as e_upd:
-                    logger.error(f"Exception archiving article {article['id']}: {e_upd}")
-                    stats["errors"] += 1
+            # Archive articles in batch
+            try:
+                article_ids = [article["id"] for article in articles]
+                update_resp = supabase.table("NewsArticles") \
+                    .update({"status": "ARCHIVED"}) \
+                    .in_("id", article_ids) \
+                    .execute()
+                
+                if getattr(update_resp, 'error', None):
+                    logger.error(f"Error archiving articles {article_ids}: {update_resp.error}")
+                    stats["errors"] += len(article_ids)
+                else:
+                    logger.info(f"Set {len(article_ids)} articles to ARCHIVED status.")
+                    stats["archived"] += len(article_ids)
+                    
+            except Exception as e_upd:
+                logger.error(f"Exception archiving articles {article_ids}: {e_upd}")
+                stats["errors"] += len(article_ids)
                     
             page += 1
             
