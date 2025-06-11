@@ -102,7 +102,8 @@ german_prompt: |
     *   **Ton und Stil:** Schreibe dynamisch und energisch. Verwende abwechslungsreiche Satzstrukturen, lebendige Beschreibungen, starke Verben und geeignete Adjektive. Rhetorische Fragen können sparsam verwendet werden, um das Engagement zu fördern, wenn sie zum journalistischen Stil passen.
     *   **Originalität und Fokus:** Stelle sicher, dass der generierte Artikel eine originelle Komposition ist, die strikt auf den Fakten des headline-relevanten Segments des `main_content` basiert. Halte den strengen Fokus auf diesem spezifischen Ereignis. Vermeide allgemeine Diskussionen oder nicht verwandte Hintergrundinformationen.
     *   **Zitationsfreier Output:** Obwohl du externe Suchwerkzeuge (Grounding) verwenden kannst, um Informationen für das spezifische Ereignis zu sammeln oder zu überprüfen, MUSS der endgültige HTML-Text, den du für die Felder 'headline', 'summary' und 'content' im JSON-Output schreibst, VOLLSTÄNDIG FREI von jeglichen Zitationsmarkierungen (z.B. [1], [2, 3], [source 4] usw.), Fußnoten oder ähnlichen Quellenverweisindikatoren sein. Der Text in diesen Feldern muss ein sauberer, narrativer Artikel sein, der bereit zur direkten Veröffentlichung ist. Betrachte die Identifizierung und Überprüfung von Quellen als Teil deines internen Informationsbeschaffungsprozesses, nicht als etwas, das im endgültigen Artikeltext enthalten sein sollte.
-  
+    *   **Themenspezifische Terminologie:** Achte besonders auf sport- und footballspezifische Begriffe (z.B. "Touchdown", "Quarterback", "Playoffs", "Hail Mary Pass"). Übersetze Konzepte korrekt. Verwende standardisierte, offizielle oder allgemein akzeptierte Terminologie im Deutschen für solche Begriffe, anstatt neue Übersetzungen zu erfinden oder wörtliche Übersetzungen zu verwenden, wenn eine anerkannte Entsprechung existiert. Wenn keine direkte, standardisierte Entsprechung existiert, verwende immer den originalen englischen Begriffe. Achte bei deiner Übersetzung besonders darauf, dass es sich um American Football und nicht um Fußball handelt. Die Übersetung von "Football" ist im Deutschen "American Football", nicht "Fußball".
+
   5.   **Formatierung des generierten Outputs:** 
     *   Die generierte Überschrift MUSS strikt als HTML `<h1>`-Tag formatiert sein.
     *   Die generierte Zusammenfassung MUSS strikt als HTML `<p>`-Tag formatiert sein.
@@ -221,6 +222,7 @@ timeline_translation_prompt: |
   4. Be consistent with sports terminology in {language_code}.
   5. Preserve dates, numbers, and proper nouns as appropriate.
   6. Keep the cluster_id field unchanged.
+  7. Ensure that the American Football terminology is accurately translated and culturally relevant in {language_code}. Don't translate Football to the local term for soccer, but use American Football.
   
   Original timeline data:
   {timeline_data}
@@ -238,6 +240,7 @@ deep_dive_translation_prompt: |
   5. Preserve the analytical depth and tone of the original content.
   6. Keep HTML formatting intact in the content field.
   7. Ensure the viewpoint name (view) and justification remain coherent and compelling in the target language.
+  8. Ensure that the American Football terminology is accurately translated and culturally relevant in {language_code}. Don't translate Football to the local term for soccer, but use American Football.
   
   Original deep dive article data:
   {deep_dive_data}
@@ -394,6 +397,7 @@ translate_text_component: |
       *   Pay close attention to domain-specific terms (e.g., "touchdown", "quarterback", "playoffs", "offsides", "Hail Mary pass").
       *   Translate concepts correctly. Use standard, official, or commonly accepted terminology in {language_name} for such terms, rather than inventing new translations or using literal word-for-word translations if a recognized equivalent exists.
       *   If a direct, standard equivalent does not exist, use a concise and clear descriptive translation of the concept.
+      *   Ensure that the translation is culturally relevant and appropriate for American Football, not soccer. For example, translate "Football" to "American Football" in {language_name}, not to the local term for soccer.
 
   **Input Text to Translate:**
   ```
