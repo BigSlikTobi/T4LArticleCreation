@@ -24,6 +24,11 @@ Key technologies leveraged in this project include Python for scripting and orch
     *   Searches for and selects relevant article images (using `articleImage.py`).
     *   Classifies articles by sports team (using `team_classifier.py`).
     *   Stores the enriched articles back into Supabase.
+*   **Personalized Content Generation:**
+    *   Generates rolling summaries for each user's specific preferences (players and teams).
+    *   Tracks new content since last update for each user-entity combination.
+    *   Uses AI to create context-aware updates that build on previous summaries.
+    *   Automated hourly execution via GitHub Actions.
 *   **Data Storage:** Uses Supabase to store both raw and enriched article data.
 *   **Scalable Architecture:** Designed to handle a growing volume of articles and data processing tasks.
 
@@ -40,11 +45,17 @@ The project is organized into several key modules and components, each responsib
 *   **`LLMSetup.py`**: Crucial for configuring and initializing the Google GenAI (Gemini models). It handles API key setup and model selection (e.g., default, lite, flash models) and configures grounding capabilities.
 *   **`englishArticle.py`**: Responsible for generating the English version of articles using GenAI models. It takes raw content and transforms it into structured article format (headline, summary, body) based on prompts from `prompts.yml`.
 *   **`germanArticle.py`**: Translates the generated English articles into German, again utilizing GenAI models and prompts from `prompts.yml`.
+*   **`personal_summary_generator.py`**: Generates personalized rolling summaries for each user's preferred players and teams. Tracks new content since the last update and uses AI to create context-aware summaries that build upon previous updates.
 *   **`articleImage.py`**: Searches for and selects relevant images for articles. It uses Google Custom Search (configured with `Custom_Search_API_KEY` and `GOOGLE_CUSTOM_SEARCH_ID`) and may employ AI for ranking or relevance checking.
 *   **`team_classifier.py`**: Classifies articles by American Football teams based on their content (headline and body). This helps in categorizing and tagging articles appropriately.
 
 ### Data Management
-*   **`database.py`**: A centralized module for all database interactions with Supabase (PostgreSQL). It abstracts functions for fetching unprocessed articles, inserting processed articles, marking articles as processed, fetching team data, etc.
+*   **`database.py`**: A centralized module for all database interactions with Supabase (PostgreSQL). It abstracts functions for fetching unprocessed articles, inserting processed articles, marking articles as processed, fetching team data, user management, and personalized content generation.
+
+### User & Personalization System
+*   **User Management**: Support for creating users and managing their preferences for specific NFL players and teams.
+*   **Personalized Updates**: Rolling summary generation that tracks new content since each user's last update and provides context-aware summaries.
+*   **Entity Linking**: Intelligent linking between articles and the specific players/teams they mention using LLM-powered analysis.
 
 ### Specialized Content Pipelines (`story_lines/` directory)
 This directory contains modules for generating more in-depth and structured content based on existing articles or topics.
@@ -184,6 +195,22 @@ This pipeline is responsible for tasks related to story line generation, includi
     ```
     There are also more specific scripts within the `story_lines` directory (e.g., `deep_dive_pipeline.py`) that might be run for more granular tasks.
 
+### Personal Summary Generation Pipeline
+
+This pipeline generates personalized content summaries for users based on their preferred NFL players and teams.
+
+*   **Manual Execution:**
+    To run the personal summary generation pipeline:
+    ```bash
+    python personal_summary_generator.py
+    ```
+
+*   **Automated Execution (GitHub Actions):**
+    The personal summary generation is configured to run automatically via a GitHub Actions workflow located in `.github/workflows/personal_summary_generation.yml`.
+    *   **Schedule:** It runs every hour to ensure users receive timely updates.
+    *   **Manual Trigger:** You can also manually trigger this workflow from the "Actions" tab of the GitHub repository.
+    This automated setup ensures continuous generation of personalized content for all users with active preferences.
+
 ### Utility Scripts
 
 *   Scripts within the `ArticleUpdates/` directory are generally intended for specific batch updates or maintenance tasks. Refer to comments within these scripts for usage instructions if needed.
@@ -193,6 +220,47 @@ This pipeline is responsible for tasks related to story line generation, includi
 *   The system implements robust error handling to manage issues during article fetching or AI processing.
 *   Logs are generated and can be configured via the `LOG_LEVEL` environment variable.
 *   Check the default `logs/` directory (or as configured) for detailed log files.
+
+## Testing
+
+The project includes comprehensive tests for all major components:
+
+### Running Tests
+
+To run all tests:
+```bash
+pytest tests/
+```
+
+To run tests with verbose output:
+```bash
+pytest tests/ -v
+```
+
+To run specific test files:
+```bash
+pytest tests/test_personal_summary_generator.py -v
+```
+
+### Test Coverage
+
+*   **Personal Summary Generator Tests** (`tests/test_personal_summary_generator.py`):
+    *   Unit tests for prompt formatting functions
+    *   Mock-based tests for LLM integration
+    *   Database function integration tests
+    *   End-to-end pipeline testing with mocked dependencies
+    *   Error handling and edge case validation
+
+*   **Legacy Tests** (`tests/test_*.py`):
+    *   Domain extraction functionality tests
+    *   Image metadata processing tests
+    *   Cluster ID change tracking tests
+
+### Test Requirements
+
+The testing suite requires additional dependencies that are included in `requirements.txt`:
+*   `pytest>=7.0.0` - Main testing framework
+*   `pytest-asyncio>=0.21.0` - Support for async/await test functions
 
 ## Contributing
 

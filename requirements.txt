@@ -10,3 +10,5 @@ certifi>=2024.2.2
 duckduckgo-search>=4.1.1
 google-genai
 genai
+pytest>=7.0.0
+pytest-asyncio>=0.21.0

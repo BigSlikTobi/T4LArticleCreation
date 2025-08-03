@@ -504,3 +504,15 @@ multi_source_synthesis_prompt: |
     "summary": "<p>Your synthesized summary leading with the current state and latest developments, then providing essential chronological context</p>",
     "content": "<div>Your comprehensive, chronologically-aware, synthesized HTML article content, free of any citations.</div>"
   }
+
+rolling_summary_prompt: |
+  You are an expert NFL analyst providing a rolling update for a fan.
+
+  **PREVIOUS SUMMARY:**
+  '''{previous_summary_text}'''
+
+  **NEW INFORMATION:**
+  - Stats: {new_stats_text}
+  - News: {new_article_titles_and_snippets}
+
+  Your task is to write a new, updated summary. Lead with the new information, but intelligently weave it into the context of the previous summary so it feels like a continuous story. Do not repeat old news unless it's directly relevant to the new events. Keep it concise and engaging.

@@ -1314,6 +1314,263 @@ async def save_article_image_metadata(article_id: int, image_url: str, original_
 
 # --- END: Image Metadata Storage functions ---
 
+# --- START: Sprint 3 - Personalized Summary functions ---
+
+async def fetch_all_users() -> List[Dict]:
+    """
+    Fetches all users from the users table.
+    
+    Returns:
+        List[Dict]: List of user records or empty list if error.
+    """
+    if not _check_supabase_client():
+        return []
+    
+    try:
+        response = supabase.table("users").select("*").execute()
+        
+        if getattr(response, 'error', None):
+            logger.error(f"Error fetching users: {response.error}")
+            return []
+            
+        return response.data or []
+        
+    except Exception as e:
+        logger.error(f"Exception fetching users: {e}", exc_info=True)
+        return []
+
+async def fetch_user_preferences(user_id: str) -> List[Dict]:
+    """
+    Fetches user preferences for a specific user.
+    
+    Args:
+        user_id (str): The user ID to fetch preferences for.
+        
+    Returns:
+        List[Dict]: List of user preference records.
+    """
+    if not _check_supabase_client():
+        return []
+    
+    try:
+        response = supabase.table("user_preferences") \
+            .select("*") \
+            .eq("user_id", user_id) \
+            .execute()
+        
+        if getattr(response, 'error', None):
+            logger.error(f"Error fetching user preferences for {user_id}: {response.error}")
+            return []
+            
+        return response.data or []
+        
+    except Exception as e:
+        logger.error(f"Exception fetching user preferences for {user_id}: {e}", exc_info=True)
+        return []
+
+async def get_last_update_timestamp(user_id: str, entity_id: str) -> Optional[str]:
+    """
+    Gets the timestamp of the last generated update for a user-entity combination.
+    Uses a tag-based approach where entity_id is stored in source_article_ids for tracking.
+    
+    Args:
+        user_id (str): The user ID.
+        entity_id (str): The entity ID (player_id or team_abbr).
+        
+    Returns:
+        Optional[str]: The last update timestamp or None if no previous update.
+    """
+    if not _check_supabase_client():
+        return None
+    
+    try:
+        # Query for updates where the entity_id appears in the source_article_ids array
+        # We use a more robust JSONB query approach
+        response = supabase.table("generated_updates") \
+            .select("created_at") \
+            .eq("user_id", user_id) \
+            .filter("source_article_ids", "cs", f'["{entity_id}"]') \
+            .order("created_at", desc=True) \
+            .limit(1) \
+            .execute()
+        
+        if getattr(response, 'error', None):
+            logger.error(f"Error fetching last update timestamp for user {user_id}, entity {entity_id}: {response.error}")
+            return None
+            
+        if response.data and len(response.data) > 0:
+            return response.data[0]["created_at"]
+            
+        return None
+        
+    except Exception as e:
+        logger.error(f"Exception fetching last update timestamp for user {user_id}, entity {entity_id}: {e}", exc_info=True)
+        return None
+
+async def fetch_new_articles_for_entity(entity_id: str, entity_type: str, since_timestamp: Optional[str] = None) -> List[Dict]:
+    """
+    Fetches new articles mentioning a specific entity since a given timestamp.
+    
+    Args:
+        entity_id (str): The entity ID (player_id or team_abbr).
+        entity_type (str): The entity type ('player' or 'team').
+        since_timestamp (str, optional): Only fetch articles published after this timestamp.
+        
+    Returns:
+        List[Dict]: List of article records.
+    """
+    if not _check_supabase_client():
+        return []
+    
+    try:
+        # Join article_entity_links with SourceArticles
+        query = supabase.table("SourceArticles") \
+            .select("*, article_entity_links!inner(entity_id, entity_type)") \
+            .eq("article_entity_links.entity_id", entity_id) \
+            .eq("article_entity_links.entity_type", entity_type)
+        
+        if since_timestamp:
+            query = query.gt("publishedAt", since_timestamp)
+            
+        response = query.order("publishedAt", desc=True).execute()
+        
+        if getattr(response, 'error', None):
+            logger.error(f"Error fetching new articles for entity {entity_id}: {response.error}")
+            return []
+            
+        return response.data or []
+        
+    except Exception as e:
+        logger.error(f"Exception fetching new articles for entity {entity_id}: {e}", exc_info=True)
+        return []
+
+async def fetch_new_stats_for_player(player_id: str, since_timestamp: Optional[str] = None) -> List[Dict]:
+    """
+    Fetches new player statistics since a given timestamp.
+    
+    Args:
+        player_id (str): The player ID (gsis_id).
+        since_timestamp (str, optional): Only fetch stats after this timestamp.
+        
+    Returns:
+        List[Dict]: List of player statistics records.
+    """
+    if not _check_supabase_client():
+        return []
+    
+    try:
+        # Join with games table to get game dates
+        query = supabase.table("player_weekly_stats") \
+            .select("*, games!inner(gameday, week, season)") \
+            .eq("player_id", player_id)
+        
+        if since_timestamp:
+            query = query.gt("games.gameday", since_timestamp)
+            
+        # For joined table ordering, we need to use the field directly
+        response = query.execute()
+        
+        # Sort the results in Python since PostgREST has issues with joined table ordering
+        if response.data:
+            response.data.sort(key=lambda x: x.get('games', {}).get('gameday', ''), reverse=True)
+        
+        if getattr(response, 'error', None):
+            logger.error(f"Error fetching new stats for player {player_id}: {response.error}")
+            return []
+            
+        return response.data or []
+        
+    except Exception as e:
+        logger.error(f"Exception fetching new stats for player {player_id}: {e}", exc_info=True)
+        return []
+
+async def get_previous_summary_for_entity(user_id: str, entity_id: str) -> Optional[str]:
+    """
+    Gets the most recent summary content for a user-entity combination.
+    Uses a tag-based approach where entity_id is stored in source_article_ids for tracking.
+    
+    Args:
+        user_id (str): The user ID.
+        entity_id (str): The entity ID.
+        
+    Returns:
+        Optional[str]: The previous summary content or None.
+    """
+    if not _check_supabase_client():
+        return None
+    
+    try:
+        # Query for updates where the entity_id appears in the source_article_ids array
+        response = supabase.table("generated_updates") \
+            .select("update_content") \
+            .eq("user_id", user_id) \
+            .filter("source_article_ids", "cs", f'["{entity_id}"]') \
+            .order("created_at", desc=True) \
+            .limit(1) \
+            .execute()
+        
+        if getattr(response, 'error', None):
+            logger.error(f"Error fetching previous summary for user {user_id}, entity {entity_id}: {response.error}")
+            return None
+            
+        if response.data and len(response.data) > 0:
+            return response.data[0]["update_content"]
+            
+        return None
+        
+    except Exception as e:
+        logger.error(f"Exception fetching previous summary for user {user_id}, entity {entity_id}: {e}", exc_info=True)
+        return None
+
+async def save_generated_update(user_id: str, entity_id: str, entity_type: str, update_content: str, 
+                               source_article_ids: List, source_stat_ids: List = None) -> bool:
+    """
+    Saves a generated update to the database.
+    Uses a tag-based approach where entity_id is added to source_article_ids for tracking.
+    
+    Args:
+        user_id (str): The user ID.
+        entity_id (str): The entity ID.
+        entity_type (str): The entity type.
+        update_content (str): The generated summary content.
+        source_article_ids (List): List of source article IDs used.
+        source_stat_ids (List, optional): List of source stat IDs used.
+        
+    Returns:
+        bool: True if save was successful, False otherwise.
+    """
+    if not _check_supabase_client():
+        return False
+    
+    try:
+        # Add entity_id to source_article_ids for tracking purposes
+        tracking_article_ids = (source_article_ids or []).copy()
+        if entity_id not in tracking_article_ids:
+            tracking_article_ids.append(entity_id)
+        
+        insert_data = {
+            "user_id": user_id,
+            "update_content": update_content,
+            "source_article_ids": tracking_article_ids,
+            "source_stat_ids": source_stat_ids or [],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        response = supabase.table("generated_updates").insert(insert_data).execute()
+        
+        if getattr(response, 'error', None):
+            logger.error(f"Error saving generated update for user {user_id}, entity {entity_id}: {response.error}")
+            return False
+            
+        logger.info(f"Successfully saved generated update for user {user_id}, entity {entity_id}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Exception saving generated update for user {user_id}, entity {entity_id}: {e}", exc_info=True)
+        return False
+
+# --- END: Sprint 3 - Personalized Summary functions ---
+
 async def archive_old_articles() -> Dict:
     """
     Archives news articles that are older than 18 days by setting their status to 'ARCHIVED'.
