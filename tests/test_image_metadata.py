@@ -1,6 +1,14 @@
 import asyncio
+import os
+import sys
+import pytest
+
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from database import save_article_image_metadata, save_cluster_image_metadata
 
+@pytest.mark.asyncio
 async def test_metadata_functions():
     print('Testing article image metadata:')
     result = await save_article_image_metadata(

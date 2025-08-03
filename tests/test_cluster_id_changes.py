@@ -7,10 +7,11 @@ import asyncio
 import logging
 import sys
 import os
+import pytest
 from uuid import uuid4
 
-# Add current directory to path for imports
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database import save_timeline_to_database, save_translated_timeline
 
@@ -22,6 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.asyncio
 async def test_cluster_id_saving():
     """Test that cluster_id is properly saved to both tables"""
     # Create test data

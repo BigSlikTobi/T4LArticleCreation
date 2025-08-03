@@ -43,3 +43,6 @@ processed_articles.json
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# temporary don't commit docs
+docs/

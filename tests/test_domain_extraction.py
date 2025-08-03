@@ -1,8 +1,14 @@
 import asyncio
 import os
-from articleImage import ImageSearcher
 import sys
+import pytest
 
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from articleImage import ImageSearcher
+
+@pytest.mark.asyncio
 async def test_domain_extraction():
     print("Starting domain extraction test...")
     
